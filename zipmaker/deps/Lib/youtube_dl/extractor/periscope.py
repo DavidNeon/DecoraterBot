@@ -1,6 +1,8 @@
 # coding: utf-8
 from __future__ import unicode_literals
 
+import re
+
 from .common import InfoExtractor
 from ..utils import (
     parse_iso8601,
@@ -41,6 +43,13 @@ class PeriscopeIE(PeriscopeBaseIE):
         'only_matching': True,
     }]
 
+    @staticmethod
+    def _extract_url(webpage):
+        mobj = re.search(
+            r'<iframe[^>]+src=([\'"])(?P<url>(?:https?:)?//(?:www\.)?periscope\.tv/(?:(?!\1).)+)\1', webpage)
+        if mobj:
+            return mobj.group('url')
+
     def _real_extract(self, url):
         token = self._match_id(url)
 
@@ -78,7 +87,7 @@ class PeriscopeIE(PeriscopeBaseIE):
                 'ext': 'flv' if format_id == 'rtmp' else 'mp4',
             }
             if format_id != 'rtmp':
-                f['protocol'] = 'm3u8_native' if state == 'ended' else 'm3u8'
+                f['protocol'] = 'm3u8_native' if state in ('ended', 'timed_out') else 'm3u8'
             formats.append(f)
         self._sort_formats(formats)
 

@@ -88,6 +88,9 @@ class Server(Hashable):
         Indicates if the server is a 'large' server. A large server is defined as having
         more than ``large_threshold`` count members, which for this library is set to
         the maximum of 250.
+    voice_client: Optional[:class:`VoiceClient`]
+        The VoiceClient associated with this server. A shortcut for the
+        :meth:`Client.voice_client_in` call.
     mfa_level: int
         Indicates the server's two factor authorisation level. If this value is 0 then
         the server does not require 2FA for their administrative members. If the value is
@@ -263,6 +266,15 @@ class Server(Hashable):
     def created_at(self):
         """Returns the server's creation time in UTC."""
         return utils.snowflake_time(self.id)
+
+    @property
+    def role_hierarchy(self):
+        """Returns the server's roles in the order of the hierarchy.
+
+        The first element of this list will be the highest role in the
+        hierarchy.
+        """
+        return sorted(self.roles, reverse=True)
 
     def get_member_named(self, name):
         """Returns the first member found that matches the name provided.
