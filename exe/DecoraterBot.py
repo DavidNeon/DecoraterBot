@@ -8,6 +8,8 @@ import asyncio
 import json
 import ctypes
 import ctypes.util
+import ctypes.wintypes
+import netrc
 import wsgiref
 import wsgiref.handlers
 import http.cookies
