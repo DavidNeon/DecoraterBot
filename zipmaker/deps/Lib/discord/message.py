@@ -26,6 +26,7 @@ DEALINGS IN THE SOFTWARE.
 
 from . import utils
 from .user import User
+from .reaction import Reaction
 from .object import Object
 from .calls import CallMessage
 import re
@@ -102,6 +103,8 @@ class Message:
         A list of attachments given to a message.
     pinned: bool
         Specifies if the message is currently pinned.
+    reactions : List[:class:`Reaction`]
+        Reactions to a message. Reactions can be either custom emoji or standard unicode emoji.
     """
 
     __slots__ = [ 'edited_timestamp', 'timestamp', 'tts', 'content', 'channel',
@@ -109,9 +112,12 @@ class Message:
                   'channel_mentions', 'server', '_raw_mentions', 'attachments',
                   '_clean_content', '_raw_channel_mentions', 'nonce', 'pinned',
                   'role_mentions', '_raw_role_mentions', 'type', 'call',
-                  '_system_content' ]
+                  '_system_content', 'reactions' ]
 
     def __init__(self, **kwargs):
+        self.reactions = kwargs.pop('reactions')
+        for reaction in self.reactions:
+            reaction.message = self
         self._update(**kwargs)
 
     def _update(self, **data):

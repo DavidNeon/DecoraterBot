@@ -56,21 +56,19 @@ elif os.name != 'nt':
     except ImportError:
         pass
 
-
 if_dl = lambda s: s if have_rtld else ''
 
 
 def get_abi3_suffix():
     """Return the file extension for an abi3-compliant Extension()"""
     for suffix, _, _ in (s for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION):
-        if '.abi3' in suffix:   # Unix
+        if '.abi3' in suffix:  # Unix
             return suffix
         elif suffix == '.pyd':  # Windows
             return suffix
 
 
 class build_ext(_build_ext):
-
     def run(self):
         """Build extensions in build directory, then copy if --inplace"""
         old_inplace, self.inplace = self.inplace, 0

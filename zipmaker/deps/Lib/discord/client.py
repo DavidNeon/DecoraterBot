@@ -32,6 +32,7 @@ from .server import Server
 from .message import Message
 from .invite import Invite
 from .object import Object
+from .reaction import Reaction
 from .role import Role
 from .errors import *
 from .state import ConnectionState
@@ -49,7 +50,7 @@ import aiohttp
 import websockets
 
 import logging, traceback
-import sys, re, io
+import sys, re, io, enum
 import tempfile, os, hashlib
 import itertools
 import datetime
@@ -68,6 +69,11 @@ def app_info_icon_url(self):
     return 'https://cdn.discordapp.com/app-icons/{0.id}/{0.icon}.jpg'.format(self)
 
 AppInfo.icon_url = property(app_info_icon_url)
+WaitedReaction = namedtuple('WaitedReaction', 'reaction user')
+
+class WaitForType(enum.Enum):
+    message  = 0
+    reaction = 1
 
 ChannelPermissions = namedtuple('ChannelPermissions', 'target overwrite')
 ChannelPermissions.__new__.__defaults__ = (PermissionOverwrite(),)
@@ -193,9 +199,36 @@ class Client:
             log.info('a problem occurred while updating the login cache')
             pass
 
+    def handle_reaction_add(self, reaction, user):
+        removed = []
+        for i, (condition, future, event_type) in enumerate(self._listeners):
+            if event_type is not WaitForType.reaction:
+                continue
+
+            if future.cancelled():
+                removed.append(i)
+                continue
+
+            try:
+                result = condition(reaction, user)
+            except Exception as e:
+                future.set_exception(e)
+                removed.append(i)
+            else:
+                if result:
+                    future.set_result(WaitedReaction(reaction, user))
+                    removed.append(i)
+
+
+        for idx in reversed(removed):
+            del self._listeners[idx]
+
     def handle_message(self, message):
         removed = []
-        for i, (condition, future) in enumerate(self._listeners):
+        for i, (condition, future, event_type) in enumerate(self._listeners):
+            if event_type is not WaitForType.message:
+                continue
+
             if future.cancelled():
                 removed.append(i)
                 continue
@@ -616,45 +649,45 @@ class Client:
         .. code-block:: python
             :emphasize-lines: 5
 
-            @client.async_event
-            def on_message(message):
+            @client.event
+            async def on_message(message):
                 if message.content.startswith('$greet'):
-                    yield from client.send_message(message.channel, 'Say hello')
-                    msg = yield from client.wait_for_message(author=message.author, content='hello')
-                    yield from client.send_message(message.channel, 'Hello.')
+                    await client.send_message(message.channel, 'Say hello')
+                    msg = await client.wait_for_message(author=message.author, content='hello')
+                    await client.send_message(message.channel, 'Hello.')
 
         Asking for a follow-up question:
 
         .. code-block:: python
             :emphasize-lines: 6
 
-            @client.async_event
-            def on_message(message):
+            @client.event
+            async def on_message(message):
                 if message.content.startswith('$start'):
-                    yield from client.send_message(message.channel, 'Type $stop 4 times.')
+                    await client.send_message(message.channel, 'Type $stop 4 times.')
                     for i in range(4):
-                        msg = yield from client.wait_for_message(author=message.author, content='$stop')
+                        msg = await client.wait_for_message(author=message.author, content='$stop')
                         fmt = '{} left to go...'
-                        yield from client.send_message(message.channel, fmt.format(3 - i))
+                        await client.send_message(message.channel, fmt.format(3 - i))
 
-                    yield from client.send_message(message.channel, 'Good job!')
+                    await client.send_message(message.channel, 'Good job!')
 
         Advanced filters using ``check``:
 
         .. code-block:: python
             :emphasize-lines: 9
 
-            @client.async_event
-            def on_message(message):
+            @client.event
+            async def on_message(message):
                 if message.content.startswith('$cool'):
-                    yield from client.send_message(message.channel, 'Who is cool? Type $name namehere')
+                    await client.send_message(message.channel, 'Who is cool? Type $name namehere')
 
                     def check(msg):
                         return msg.content.startswith('$name')
 
-                    message = yield from client.wait_for_message(author=message.author, check=check)
+                    message = await client.wait_for_message(author=message.author, check=check)
                     name = message.content[len('$name'):].strip()
-                    yield from client.send_message(message.channel, '{} is cool indeed'.format(name))
+                    await client.send_message(message.channel, '{} is cool indeed'.format(name))
 
 
         Parameters
@@ -695,12 +728,121 @@ class Client:
             return result
 
         future = asyncio.Future(loop=self.loop)
-        self._listeners.append((predicate, future))
+        self._listeners.append((predicate, future, WaitForType.message))
         try:
             message = yield from asyncio.wait_for(future, timeout, loop=self.loop)
         except asyncio.TimeoutError:
             message = None
         return message
+
+
+    @asyncio.coroutine
+    def wait_for_reaction(self, emoji=None, *, user=None, timeout=None, message=None, check=None):
+        """|coro|
+
+        Waits for a message reaction from Discord. This is similar to :meth:`wait_for_message`
+        and could be seen as another :func:`on_reaction_add` event outside of the actual event.
+        This could be used for follow up situations.
+
+        Similar to :meth:`wait_for_message`, the keyword arguments are combined using logical
+        AND operator. The ``check`` keyword argument can be used to pass in more complicated
+        checks and must a regular function taking in two arguments, ``(reaction, user)``. It
+        must not be a coroutine.
+
+        The ``timeout`` parameter is passed into asyncio.wait_for. By default, it
+        does not timeout. Instead of throwing ``asyncio.TimeoutError`` the coroutine
+        catches the exception and returns ``None`` instead of a the ``(reaction, user)``
+        tuple.
+
+        If the ``check`` predicate throws an exception, then the exception is propagated.
+
+        The ``emoji`` parameter can be either a :class:`Emoji`, a ``str`` representing
+        an emoji, or a sequence of either type. If the ``emoji`` parameter is a sequence
+        then the first reaction emoji that is in the list is returned. If ``None`` is
+        passed then the first reaction emoji used is returned.
+
+        This function returns the **first reaction that meets the requirements**.
+
+        Examples
+        ---------
+
+        Basic Example:
+
+        .. code-block:: python
+
+            @client.event
+            async def on_message(message):
+                if message.content.startswith('$react'):
+                    msg = await client.send_message(message.channel, 'React with thumbs up or thumbs down.')
+                    res = await client.wait_for_reaction(['\N{THUMBS UP SIGN}', '\N{THUMBS DOWN SIGN}'], message=msg)
+                    await client.send_message(message.channel, '{.user} reacted with {.reaction.emoji}!'.format(res))
+
+        Checking for reaction emoji regardless of skin tone:
+
+        .. code-block:: python
+
+            @client.event
+            async def on_message(message):
+                if message.content.startswith('$react'):
+                    msg = await client.send_message(message.channel, 'React with thumbs up or thumbs down.')
+
+                    def check(reaction, user):
+                        e = str(reaction.emoji)
+                        return e.startswith(('\N{THUMBS UP SIGN}', '\N{THUMBS DOWN SIGN}'))
+
+                    res = await client.wait_for_reaction(message=msg, check=check)
+                    await client.send_message(message.channel, '{.user} reacted with {.reaction.emoji}!'.format(res))
+
+        Parameters
+        -----------
+        timeout: float
+            The number of seconds to wait before returning ``None``.
+        user: :class:`Member` or :class:`User`
+            The user the reaction must be from.
+        emoji: str or :class:`Emoji` or sequence
+            The emoji that we are waiting to react with.
+        message: :class:`Message`
+            The message that we want the reaction to be from.
+        check: function
+            A predicate for other complicated checks. The predicate must take
+            ``(reaction, user)`` as its two parameters, which ``reaction`` being a
+            :class:`Reaction` and ``user`` being either a :class:`User` or a
+            :class:`Member`.
+
+        Returns
+        --------
+        namedtuple
+            A namedtuple with attributes ``reaction`` and ``user`` similar to :func:`on_reaction_add`.
+        """
+
+        if emoji is None:
+            emoji_check = lambda r: True
+        elif isinstance(emoji, (str, Emoji)):
+            emoji_check = lambda r: r.emoji == emoji
+        else:
+            emoji_check = lambda r: r.emoji in emoji
+
+        def predicate(reaction, reaction_user):
+            result = emoji_check(reaction)
+
+            if message is not None:
+                result = result and message.id == reaction.message.id
+
+            if user is not None:
+                result = result and user.id == reaction_user.id
+
+            if callable(check):
+                # the exception thrown by check is propagated through the future.
+                result = result and check(reaction, reaction_user)
+
+            return result
+
+        future = asyncio.Future(loop=self.loop)
+        self._listeners.append((predicate, future, WaitForType.reaction))
+        try:
+            return (yield from asyncio.wait_for(future, timeout, loop=self.loop))
+        except asyncio.TimeoutError:
+            return None
 
     # event registration
 
@@ -779,6 +921,130 @@ class Client:
         return channel
 
     @asyncio.coroutine
+    def add_reaction(self, message, emoji):
+        """|coro|
+
+        Add a reaction to the given message.
+
+        The message must be a :class:`Message` that exists. emoji may be a unicode emoji,
+        or a custom server :class:`Emoji`.
+
+        Parameters
+        ------------
+        message : :class:`Message`
+            The message to react to.
+        emoji : :class:`Emoji` or str
+            The emoji to react with.
+
+        Raises
+        --------
+        HTTPException
+            Adding the reaction failed.
+        Forbidden
+            You do not have the proper permissions to react to the message.
+        NotFound
+            The message or emoji you specified was not found.
+        InvalidArgument
+            The message or emoji parameter is invalid.
+        """
+        if not isinstance(message, Message):
+            raise InvalidArgument('message argument must be a Message')
+        if not isinstance(emoji, (str, Emoji)):
+            raise InvalidArgument('emoji argument must be a string or Emoji')
+
+        if isinstance(emoji, Emoji):
+            emoji = '{}:{}'.format(emoji.name, emoji.id)
+
+        yield from self.http.add_reaction(message.id, message.channel.id, emoji)
+
+    @asyncio.coroutine
+    def remove_reaction(self, message, emoji, member):
+        """|coro|
+
+        Remove a reaction by the member from the given message.
+
+        If member != server.me, you need Manage Messages to remove the reaction.
+
+        The message must be a :class:`Message` that exists. emoji may be a unicode emoji,
+        or a custom server :class:`Emoji`.
+
+        Parameters
+        ------------
+        message : :class:`Message`
+            The message.
+        emoji : :class:`Emoji` or str
+            The emoji to remove.
+        member : :class:`Member`
+            The member for which to delete the reaction.
+
+        Raises
+        --------
+        HTTPException
+            Adding the reaction failed.
+        Forbidden
+            You do not have the proper permissions to remove the reaction.
+        NotFound
+            The message or emoji you specified was not found.
+        InvalidArgument
+            The message or emoji parameter is invalid.
+        """
+        if not isinstance(message, Message):
+            raise InvalidArgument('message argument must be a Message')
+        if not isinstance(emoji, (str, Emoji)):
+            raise InvalidArgument('emoji must be a string or Emoji')
+
+        if isinstance(emoji, Emoji):
+            emoji = '{}:{}'.format(emoji.name, emoji.id)
+
+        if member == self.user:
+            member_id = '@me'
+        else:
+            member_id = member.id
+
+        yield from self.http.remove_reaction(message.id, message.channel.id, emoji, member_id)
+
+    @asyncio.coroutine
+    def get_reaction_users(self, reaction, limit=100, after=None):
+        """|coro|
+
+        Get the users that added a reaction to a message.
+
+        Parameters
+        ------------
+        reaction : :class:`Reaction`
+            The reaction to retrieve users for.
+        limit : int
+            The maximum number of results to return.
+        after : :class:`Member` or :class:`Object`
+            For pagination, reactions are sorted by member.
+
+        Raises
+        --------
+        HTTPException
+            Getting the users for the reaction failed.
+        NotFound
+            The message or emoji you specified was not found.
+        InvalidArgument
+            The reaction parameter is invalid.
+        """
+        if not isinstance(reaction, Reaction):
+            raise InvalidArgument('reaction must be a Reaction')
+
+        emoji = reaction.emoji
+
+        if isinstance(emoji, Emoji):
+            emoji = '{}:{}'.format(emoji.name, emoji.id)
+
+        if after:
+            after = after.id
+
+        data = yield from self.http.get_reaction_users(
+            reaction.message.id, reaction.message.channel.id,
+            emoji, limit, after=after)
+
+        return [User(**user) for user in data]
+
+    @asyncio.coroutine
     def send_message(self, destination, content, *, tts=False):
         """|coro|
 
@@ -831,7 +1097,7 @@ class Client:
 
         data = yield from self.http.send_message(channel_id, content, guild_id=guild_id, tts=tts)
         channel = self.get_channel(data.get('channel_id'))
-        message = Message(channel=channel, **data)
+        message = self.connection._create_message(channel=channel, **data)
         return message
 
     @asyncio.coroutine
@@ -913,7 +1179,7 @@ class Client:
         data = yield from self.http.send_file(channel_id, buffer, guild_id=guild_id,
                                               filename=filename, content=content, tts=tts)
         channel = self.get_channel(data.get('channel_id'))
-        message = Message(channel=channel, **data)
+        message = self.connection._create_message(channel=channel, **data)
         return message
 
     @asyncio.coroutine
@@ -981,7 +1247,7 @@ class Client:
         yield from self.http.delete_messages(channel.id, message_ids, guild_id)
 
     @asyncio.coroutine
-    def purge_from(self, channel, *, limit=100, check=None, before=None, after=None):
+    def purge_from(self, channel, *, limit=100, check=None, before=None, after=None, around=None):
         """|coro|
 
         Purges a list of messages that meet the criteria given by the predicate
@@ -1009,6 +1275,9 @@ class Client:
             If a date is provided it must be a timezone-naive datetime representing UTC time.
         after : :class:`Message` or `datetime`
             The message or date after which all deleted messages must be.
+            If a date is provided it must be a timezone-naive datetime representing UTC time.
+        around : :class:`Message` or `datetime`
+            The message or date around which all deleted messages must be.
             If a date is provided it must be a timezone-naive datetime representing UTC time.
 
         Raises
@@ -1043,8 +1312,10 @@ class Client:
             before = Object(utils.time_snowflake(before, high=False))
         if isinstance(after, datetime.datetime):
             after = Object(utils.time_snowflake(after, high=True))
+        if isinstance(around, datetime.datetime):
+            around = Object(utils.time_snowflake(around, high=True))
 
-        iterator = LogsFromIterator.create(self, channel, limit, before=before, after=after)
+        iterator = LogsFromIterator(self, channel, limit, before=before, after=after, around=around)
         ret = []
         count = 0
 
@@ -1104,7 +1375,7 @@ class Client:
         content = str(new_content)
         guild_id = channel.server.id if not getattr(channel, 'is_private', True) else None
         data = yield from self.http.edit_message(message.id, channel.id, content, guild_id=guild_id)
-        return Message(channel=channel, **data)
+        return self.connection._create_message(channel=channel, **data)
 
     @asyncio.coroutine
     def get_message(self, channel, id):
@@ -1137,7 +1408,7 @@ class Client:
         """
 
         data = yield from self.http.get_message(channel.id, id)
-        return Message(channel=channel, **data)
+        return self.connection._create_message(channel=channel, **data)
 
     @asyncio.coroutine
     def pin_message(self, message):
@@ -1207,9 +1478,9 @@ class Client:
         """
 
         data = yield from self.http.pins_from(channel.id)
-        return [Message(channel=channel, **m) for m in data]
+        return [self.connection._create_message(channel=channel, **m) for m in data]
 
-    def _logs_from(self, channel, limit=100, before=None, after=None):
+    def _logs_from(self, channel, limit=100, before=None, after=None, around=None):
         """|coro|
 
         This coroutine returns a generator that obtains logs from a specified channel.
@@ -1225,6 +1496,9 @@ class Client:
             If a date is provided it must be a timezone-naive datetime representing UTC time.
         after : :class:`Message` or `datetime`
             The message or date after which all returned messages must be.
+            If a date is provided it must be a timezone-naive datetime representing UTC time.
+        around : :class:`Message` or `datetime`
+            The message or date around which all returned messages must be.
             If a date is provided it must be a timezone-naive datetime representing UTC time.
 
         Raises
@@ -1261,17 +1535,20 @@ class Client:
         """
         before = getattr(before, 'id', None)
         after  = getattr(after, 'id', None)
+        around  = getattr(around, 'id', None)
 
-        return self.http.logs_from(channel.id, limit, before=before, after=after)
+        return self.http.logs_from(channel.id, limit, before=before, after=after, around=around)
 
     if PY35:
-        def logs_from(self, channel, limit=100, *, before=None, after=None, reverse=False):
+        def logs_from(self, channel, limit=100, *, before=None, after=None, around=None, reverse=False):
             if isinstance(before, datetime.datetime):
                 before = Object(utils.time_snowflake(before, high=False))
             if isinstance(after, datetime.datetime):
                 after = Object(utils.time_snowflake(after, high=True))
+            if isinstance(around, datetime.datetime):
+                around = Object(utils.time_snowflake(around))
 
-            return LogsFromIterator.create(self, channel, limit, before=before, after=after, reverse=reverse)
+            return LogsFromIterator(self, channel, limit, before=before, after=after, around=around, reverse=reverse)
     else:
         @asyncio.coroutine
         def logs_from(self, channel, limit=100, *, before=None, after=None):
@@ -1282,7 +1559,7 @@ class Client:
 
             def generator(data):
                 for message in data:
-                    yield Message(channel=channel, **message)
+                    yield self.connection._create_message(channel=channel, **message)
 
             result = []
             while limit > 0:

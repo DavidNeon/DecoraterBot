@@ -180,10 +180,17 @@ class HTTPClient:
             data = yield from self.post(self.LOGIN, json=payload, bucket=_func_())
         except HTTPException as e:
             if e.response.status == 400:
+                yield from self.close()
                 raise LoginFailure('Improper credentials have been passed.') from e
-            raise
+            else:
+                yield from self.close()
+                raise
 
-        self._token(data['token'], bot=False)
+        if not data['mfa']:
+            self._token(data['token'], bot=False)
+        else:
+            yield from self.close()
+            raise LoginFailure('Accounts with 2fa enabled sadly cannot be used with email/password login.\nTry: client.run("mfa token here", bot=False) instead.')
         return data
 
     @asyncio.coroutine
@@ -261,11 +268,29 @@ class HTTPClient:
         }
         return self.patch(url, json=payload, bucket='messages:' + str(guild_id))
 
+    def add_reaction(self, message_id, channel_id, emoji):
+        url = '{0.CHANNELS}/{1}/messages/{2}/reactions/{3}/@me'.format(
+            self, channel_id, message_id, emoji)
+        return self.put(url, bucket='%s:%s' % (_func_(), channel_id))
+
+    def remove_reaction(self, message_id, channel_id, emoji, member_id):
+        url = '{0.CHANNELS}/{1}/messages/{2}/reactions/{3}/{4}'.format(
+            self, channel_id, message_id, emoji, member_id)
+        return self.delete(url, bucket='%s:%s' % (_func_(), channel_id))
+
+    def get_reaction_users(self, message_id, channel_id, emoji, limit, after=None):
+        url = '{0.CHANNELS}/{1}/messages/{2}/reactions/{3}'.format(
+            self, channel_id, message_id, emoji)
+        params = {'limit': limit}
+        if after:
+            params['after'] = after
+        return self.get(url, params=params, bucket='%s:%s' % (_func_(), channel_id))
+
     def get_message(self, channel_id, message_id):
         url = '{0.CHANNELS}/{1}/messages/{2}'.format(self, channel_id, message_id)
         return self.get(url, bucket=_func_())
 
-    def logs_from(self, channel_id, limit, before=None, after=None):
+    def logs_from(self, channel_id, limit, before=None, after=None, around=None):
         url = '{0.CHANNELS}/{1}/messages'.format(self, channel_id)
         params = {
             'limit': limit
@@ -275,6 +300,8 @@ class HTTPClient:
             params['before'] = before
         if after:
             params['after'] = after
+        if around:
+            params['around'] = around
 
         return self.get(url, params=params, bucket=_func_())
 

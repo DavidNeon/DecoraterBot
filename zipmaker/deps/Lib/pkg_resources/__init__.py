@@ -1,5 +1,4 @@
 # coding: utf-8
-
 """
 Package resource API
 --------------------
@@ -74,7 +73,6 @@ __import__('pkg_resources.extern.packaging.specifiers')
 __import__('pkg_resources.extern.packaging.requirements')
 __import__('pkg_resources.extern.packaging.markers')
 
-
 if (3, 0) < sys.version_info < (3, 3):
     msg = (
         "Support for Python 3.0-3.2 has been dropped. Future versions "
@@ -96,7 +94,6 @@ class PEP440Warning(RuntimeWarning):
 
 
 class _SetuptoolsVersionMixin(object):
-
     def __hash__(self):
         return super(_SetuptoolsVersionMixin, self).__hash__()
 
@@ -578,7 +575,6 @@ def get_entry_info(dist, group, name):
 
 
 class IMetadataProvider:
-
     def has_metadata(name):
         """Does the package's distribution contain the named metadata?"""
 
@@ -1398,7 +1394,7 @@ def safe_extra(extra):
     Any runs of non-alphanumeric characters are replaced with a single '_',
     and the result is always lowercased.
     """
-    return re.sub('[^A-Za-z0-9.]+', '_', extra).lower()
+    return re.sub('[^A-Za-z0-9.-]+', '_', extra).lower()
 
 
 def to_filename(name):
@@ -1983,12 +1979,20 @@ def find_on_path(importer, path_item, only=False):
             )
         else:
             # scan for .egg and .egg-info in directory
-            for entry in os.listdir(path_item):
+
+            path_item_entries = os.listdir(path_item)
+            # Reverse so we find the newest version of a distribution,
+            path_item_entries.sort()
+            path_item_entries.reverse()
+            for entry in path_item_entries:
                 lower = entry.lower()
                 if lower.endswith('.egg-info') or lower.endswith('.dist-info'):
                     fullpath = os.path.join(path_item, entry)
                     if os.path.isdir(fullpath):
                         # egg-info directory, allow getting metadata
+                        if len(os.listdir(fullpath)) == 0:
+                            # Empty egg directory, skip.
+                            continue
                         metadata = PathMetadata(path_item, fullpath)
                     else:
                         metadata = FileMetadata(fullpath)
@@ -2730,7 +2734,6 @@ class Distribution(object):
 
 
 class EggInfoDistribution(Distribution):
-
     def _reload_version(self):
         """
         Packages installed by distutils (e.g. numpy or scipy),
@@ -2790,8 +2793,8 @@ class DistInfoDistribution(Distribution):
         dm[None].extend(common)
 
         for extra in self._parsed_pkg_info.get_all('Provides-Extra') or []:
-            extra = safe_extra(extra.strip())
-            dm[extra] = list(frozenset(reqs_for_extra(extra)) - common)
+            s_extra = safe_extra(extra.strip())
+            dm[s_extra] = list(frozenset(reqs_for_extra(extra)) - common)
 
         return dm
 
@@ -2817,7 +2820,6 @@ def issue_warning(*args, **kw):
 
 
 class RequirementParseError(ValueError):
-
     def __str__(self):
         return ' '.join(self.args)
 
@@ -2842,7 +2844,6 @@ def parse_requirements(strs):
 
 
 class Requirement(packaging.requirements.Requirement):
-
     def __init__(self, requirement_string):
         """DO NOT CALL THIS UNDOCUMENTED METHOD; use Requirement.parse()!"""
         try:
@@ -2898,8 +2899,10 @@ class Requirement(packaging.requirements.Requirement):
 def _get_mro(cls):
     """Get an mro for a type or classic class"""
     if not isinstance(cls, type):
+
         class cls(cls, object):
             pass
+
         return cls.__mro__[1:]
     return cls.__mro__
 

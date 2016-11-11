@@ -30,6 +30,7 @@ from ..downloader.f4m import remove_encrypted_media
 from ..utils import (
     NO_DEFAULT,
     age_restricted,
+    base_url,
     bug_reports_message,
     clean_html,
     compiled_regex_type,
@@ -235,7 +236,7 @@ class InfoExtractor(object):
     chapter_id:     Id of the chapter the video belongs to, as a unicode string.
 
     The following fields should only be used when the video is an episode of some
-    series or programme:
+    series, programme or podcast:
 
     series:         Title of the series or programme the video episode belongs to.
     season:         Title of the season the video episode belongs to.
@@ -1100,6 +1101,13 @@ class InfoExtractor(object):
             manifest, ['{http://ns.adobe.com/f4m/1.0}bootstrapInfo', '{http://ns.adobe.com/f4m/2.0}bootstrapInfo'],
             'bootstrap info', default=None)
 
+        vcodec = None
+        mime_type = xpath_text(
+            manifest, ['{http://ns.adobe.com/f4m/1.0}mimeType', '{http://ns.adobe.com/f4m/2.0}mimeType'],
+            'base URL', default=None)
+        if mime_type and mime_type.startswith('audio/'):
+            vcodec = 'none'
+
         for i, media_el in enumerate(media_nodes):
             tbr = int_or_none(media_el.attrib.get('bitrate'))
             width = int_or_none(media_el.attrib.get('width'))
@@ -1140,6 +1148,7 @@ class InfoExtractor(object):
                             'width': f.get('width') or width,
                             'height': f.get('height') or height,
                             'format_id': f.get('format_id') if not tbr else format_id,
+                            'vcodec': vcodec,
                         })
                     formats.extend(f4m_formats)
                     continue
@@ -1156,6 +1165,7 @@ class InfoExtractor(object):
                 'tbr': tbr,
                 'width': width,
                 'height': height,
+                'vcodec': vcodec,
                 'preference': preference,
             })
         return formats
@@ -1270,9 +1280,10 @@ class InfoExtractor(object):
                 }
                 resolution = last_info.get('RESOLUTION')
                 if resolution:
-                    width_str, height_str = resolution.split('x')
-                    f['width'] = int(width_str)
-                    f['height'] = int(height_str)
+                    mobj = re.search(r'(?P<width>\d+)[xX](?P<height>\d+)', resolution)
+                    if mobj:
+                        f['width'] = int(mobj.group('width'))
+                        f['height'] = int(mobj.group('height'))
                 # Unified Streaming Platform
                 mobj = re.search(
                     r'audio.*?(?:%3D|=)(\d+)(?:-video.*?(?:%3D|=)(\d+))?', f['url'])
@@ -1530,7 +1541,7 @@ class InfoExtractor(object):
         if res is False:
             return []
         mpd, urlh = res
-        mpd_base_url = re.match(r'https?://.+/', urlh.geturl()).group()
+        mpd_base_url = base_url(urlh.geturl())
 
         return self._parse_mpd_formats(
             compat_etree_fromstring(mpd.encode('utf-8')), mpd_id, mpd_base_url,
@@ -1771,6 +1782,105 @@ class InfoExtractor(object):
                         self.report_warning('Unknown MIME type %s in DASH manifest' % mime_type)
         return formats
 
+    def _extract_ism_formats(self, ism_url, video_id, ism_id=None, note=None, errnote=None, fatal=True):
+        res = self._download_webpage_handle(
+            ism_url, video_id,
+            note=note or 'Downloading ISM manifest',
+            errnote=errnote or 'Failed to download ISM manifest',
+            fatal=fatal)
+        if res is False:
+            return []
+        ism, urlh = res
+
+        return self._parse_ism_formats(
+            compat_etree_fromstring(ism.encode('utf-8')), urlh.geturl(), ism_id)
+
+    def _parse_ism_formats(self, ism_doc, ism_url, ism_id=None):
+        if ism_doc.get('IsLive') == 'TRUE' or ism_doc.find('Protection') is not None:
+            return []
+
+        duration = int(ism_doc.attrib['Duration'])
+        timescale = int_or_none(ism_doc.get('TimeScale')) or 10000000
+
+        formats = []
+        for stream in ism_doc.findall('StreamIndex'):
+            stream_type = stream.get('Type')
+            if stream_type not in ('video', 'audio'):
+                continue
+            url_pattern = stream.attrib['Url']
+            stream_timescale = int_or_none(stream.get('TimeScale')) or timescale
+            stream_name = stream.get('Name')
+            for track in stream.findall('QualityLevel'):
+                fourcc = track.get('FourCC')
+                # TODO: add support for WVC1 and WMAP
+                if fourcc not in ('H264', 'AVC1', 'AACL'):
+                    self.report_warning('%s is not a supported codec' % fourcc)
+                    continue
+                tbr = int(track.attrib['Bitrate']) // 1000
+                width = int_or_none(track.get('MaxWidth'))
+                height = int_or_none(track.get('MaxHeight'))
+                sampling_rate = int_or_none(track.get('SamplingRate'))
+
+                track_url_pattern = re.sub(r'{[Bb]itrate}', track.attrib['Bitrate'], url_pattern)
+                track_url_pattern = compat_urlparse.urljoin(ism_url, track_url_pattern)
+
+                fragments = []
+                fragment_ctx = {
+                    'time': 0,
+                }
+                stream_fragments = stream.findall('c')
+                for stream_fragment_index, stream_fragment in enumerate(stream_fragments):
+                    fragment_ctx['time'] = int_or_none(stream_fragment.get('t')) or fragment_ctx['time']
+                    fragment_repeat = int_or_none(stream_fragment.get('r')) or 1
+                    fragment_ctx['duration'] = int_or_none(stream_fragment.get('d'))
+                    if not fragment_ctx['duration']:
+                        try:
+                            next_fragment_time = int(stream_fragment[stream_fragment_index + 1].attrib['t'])
+                        except IndexError:
+                            next_fragment_time = duration
+                        fragment_ctx['duration'] = (next_fragment_time - fragment_ctx['time']) / fragment_repeat
+                    for _ in range(fragment_repeat):
+                        fragments.append({
+                            'url': re.sub(r'{start[ _]time}', compat_str(fragment_ctx['time']), track_url_pattern),
+                            'duration': fragment_ctx['duration'] / stream_timescale,
+                        })
+                        fragment_ctx['time'] += fragment_ctx['duration']
+
+                format_id = []
+                if ism_id:
+                    format_id.append(ism_id)
+                if stream_name:
+                    format_id.append(stream_name)
+                format_id.append(compat_str(tbr))
+
+                formats.append({
+                    'format_id': '-'.join(format_id),
+                    'url': ism_url,
+                    'manifest_url': ism_url,
+                    'ext': 'ismv' if stream_type == 'video' else 'isma',
+                    'width': width,
+                    'height': height,
+                    'tbr': tbr,
+                    'asr': sampling_rate,
+                    'vcodec': 'none' if stream_type == 'audio' else fourcc,
+                    'acodec': 'none' if stream_type == 'video' else fourcc,
+                    'protocol': 'ism',
+                    'fragments': fragments,
+                    '_download_params': {
+                        'duration': duration,
+                        'timescale': stream_timescale,
+                        'width': width or 0,
+                        'height': height or 0,
+                        'fourcc': fourcc,
+                        'codec_private_data': track.get('CodecPrivateData'),
+                        'sampling_rate': sampling_rate,
+                        'channels': int_or_none(track.get('Channels', 2)),
+                        'bits_per_sample': int_or_none(track.get('BitsPerSample', 16)),
+                        'nal_unit_length_field': int_or_none(track.get('NALUnitLengthField', 4)),
+                    },
+                })
+        return formats
+
     def _parse_html5_media_entries(self, base_url, webpage, video_id, m3u8_id=None, m3u8_entry_protocol='m3u8'):
         def absolute_url(video_url):
             return compat_urlparse.urljoin(base_url, video_url)
@@ -1802,7 +1912,11 @@ class InfoExtractor(object):
             return is_plain_url, formats
 
         entries = []
-        for media_tag, media_type, media_content in re.findall(r'(?s)(<(?P<tag>video|audio)[^>]*>)(.*?)</(?P=tag)>', webpage):
+        media_tags = [(media_tag, media_type, '')
+                      for media_tag, media_type
+                      in re.findall(r'(?s)(<(video|audio)[^>]*/>)', webpage)]
+        media_tags.extend(re.findall(r'(?s)(<(?P<tag>video|audio)[^>]*>)(.*?)</(?P=tag)>', webpage))
+        for media_tag, media_type, media_content in media_tags:
             media_info = {
                 'formats': [],
                 'subtitles': {},
@@ -1871,11 +1985,11 @@ class InfoExtractor(object):
             formats.extend(self._extract_f4m_formats(
                 http_base_url + '/manifest.f4m',
                 video_id, f4m_id='hds', fatal=False))
+        if 'dash' not in skip_protocols:
+            formats.extend(self._extract_mpd_formats(
+                http_base_url + '/manifest.mpd',
+                video_id, mpd_id='dash', fatal=False))
         if re.search(r'(?:/smil:|\.smil)', url_base):
-            if 'dash' not in skip_protocols:
-                formats.extend(self._extract_mpd_formats(
-                    http_base_url + '/manifest.mpd',
-                    video_id, mpd_id='dash', fatal=False))
             if 'smil' not in skip_protocols:
                 rtmp_formats = self._extract_smil_formats(
                     http_base_url + '/jwplayer.smil',
