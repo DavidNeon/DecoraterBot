@@ -10,6 +10,8 @@ import tempfile
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 
+PY34 = sys.version_info > (3, 3)
+
 TKTCL_RE = re.compile(r'^(_?tk|tcl).+\.(pyd|dll)', re.IGNORECASE)
 DEBUG_RE = re.compile(r'_d\.(pyd|dll|exe|pdb|lib)$', re.IGNORECASE)
 PYTHON_DLL_RE = re.compile(r'python\d\d?\.dll$', re.IGNORECASE)
@@ -90,6 +92,9 @@ def include_in_lib(p):
             return False
         if name in {'test', 'tests'} and p.parts[-3].lower() == 'lib':
             return False
+        if PY34:
+            if name == 'asyncio':
+                return False
         if sys.platform.startswith('linux'):
             if name == 'cffi':
                 return False
