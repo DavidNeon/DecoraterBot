@@ -35,7 +35,7 @@ from random import randint as random_integer
 
 log = logging.getLogger(__name__)
 
-from .errors import HTTPException, Forbidden, NotFound, LoginFailure, GatewayNotFound, InvalidToken, UnknownConnectionError
+from .errors import HTTPException, Forbidden, NotFound, LoginFailure, GatewayNotFound
 from . import utils, __version__
 
 @asyncio.coroutine
@@ -186,11 +186,7 @@ class HTTPClient:
                 yield from self.close()
                 raise
 
-        if not data['mfa']:
-            self._token(data['token'], bot=False)
-        else:
-            yield from self.close()
-            raise LoginFailure('Accounts with 2fa enabled sadly cannot be used with email/password login.\nTry: client.run("mfa token here", bot=False) instead.')
+        self._token(data['token'], bot=False)
         return data
 
     @asyncio.coroutine
@@ -203,7 +199,7 @@ class HTTPClient:
         except HTTPException as e:
             self._token(old_token, bot=old_bot)
             if e.response.status == 401:
-                raise InvalidToken('Invalid token has been passed.') from e
+                raise LoginFailure('Improper token has been passed.') from e
             raise e
 
         return data

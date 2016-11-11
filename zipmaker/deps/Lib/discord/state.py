@@ -261,7 +261,8 @@ class ConnectionState:
             is_me = data['user_id'] == self.user.id
 
             if not reaction:
-                reaction = Reaction(message=message, me=is_me, **data)
+                reaction = Reaction(
+                    message=message, emoji=emoji, me=is_me, **data)
                 message.reactions.append(reaction)
             else:
                 reaction.count += 1
