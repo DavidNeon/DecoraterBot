@@ -1,1 +1,1 @@
-python3 ./zipmaker/make_zip.py -s ./zipmaker/deps -o ./zipmaker/DecoraterBot-deps
+python3 ./zipmaker/make_zip.py -b ./resources/python35/win32 -s ./zipmaker/deps -e -o ./zipmaker/DecoraterBot-deps

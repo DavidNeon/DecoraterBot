@@ -12,18 +12,74 @@ from zipfile import ZipFile, ZIP_DEFLATED
 
 PY34 = sys.version_info > (3, 3)
 
-EXCLUDE_FROM_LIBRARY = {
-    if PY34:
-        'asyncio',
-    '_cffi_backend',
-    'aiohttp',
-    'yarl',
-    'pycares',
-    'cchardet',
-    'nacl',
-    'multidict',
+TKTCL_RE = re.compile(r'^(_?tk|tcl).+\.(pyd|dll)', re.IGNORECASE)
+DEBUG_RE = re.compile(r'_d\.(pyd|dll|exe|pdb|lib)$', re.IGNORECASE)
+PYTHON_DLL_RE = re.compile(r'python\d\d?\.dll$', re.IGNORECASE)
+
+DEBUG_FILES = {
+    '_ctypes_test',
+    '_testbuffer',
+    '_testcapi',
+    '_testimportmultiple',
+    '_testmultiphase',
+    'xxlimited',
+    'python3_dstub',
+    '_bz2',
+    '_ctypes',
+    '_decimal',
+    '_elementtree',
+    '_hashlib',
+    '_lzma',
+    '_msi',
+    '_multiprocessing',
+    '_overlapped',
+    '_socket',
+    '_sqlite3',
+    '_ssl',
+    'pyexpat',
+    'python',
+    'python3',
+    'python35',
+    'pythonw',
+    'select',
+    'sqlite3',
+    'unicodedata',
+    'vcruntime140',
+    'winsound',
 }
 
+EXCLUDE_FROM_LIBRARY = {
+    '__pycache__',
+    'ensurepip',
+    'idlelib',
+    'pydoc_data',
+    'site-packages',
+    'tkinter',
+    'turtledemo',
+    'venv',
+}
+
+EXCLUDE_FILE_FROM_LIBRARY = {
+    'bdist_wininst.py',
+}
+
+EXCLUDE_FILE_FROM_LIBS = {
+    'ssleay',
+    'libeay',
+    'python3stub',
+}
+
+def is_not_debug(p):
+    if DEBUG_RE.search(p.name):
+        return False
+
+    if TKTCL_RE.search(p.name):
+        return False
+
+    return p.stem.lower() not in DEBUG_FILES
+
+def is_not_debug_or_python(p):
+    return is_not_debug(p) and not PYTHON_DLL_RE.search(p.name)
 
 def include_in_lib(p):
     name = p.name.lower()
@@ -37,15 +93,58 @@ def include_in_lib(p):
         if name in {'test', 'tests'} and p.parts[-3].lower() == 'lib':
             return False
         return True
+        if PY34 and name == 'asyncio':
+            return False
+        if sys.platform.startswith('win32'):
+            if name == '_cffi_backend':
+                return False
+        if name == 'aiohttp' or name ==  'yarl' or name == 'pycares' or name == 'cchardet' or name == 'nacl' or name == 'multidict':
+            return False
+
+    if name in EXCLUDE_FILE_FROM_LIBRARY:
+        return False
 
     suffix = p.suffix.lower()
     return suffix not in {'.pyc', '.pyo', '.exe', '.pyd', '.so'}
 
+def include_in_libs(p):
+    if not is_not_debug(p):
+        return False
+
+    return p.stem.lower() not in EXCLUDE_FILE_FROM_LIBS
+
+def include_in_tools(p):
+    if p.is_dir() and p.name.lower() in {'scripts', 'i18n', 'pynche', 'demo', 'parser'}:
+        return True
+
+    return p.suffix.lower() in {'.py', '.pyw', '.txt'}
+
+FULL_LAYOUT = [
+    ('/', '$build', 'python.exe', is_not_debug),
+    ('/', '$build', 'pythonw.exe', is_not_debug),
+    ('/', '$build', 'python{0.major}.dll'.format(sys.version_info), is_not_debug),
+    ('/', '$build', 'python{0.major}{0.minor}.dll'.format(sys.version_info), is_not_debug),
+    ('DLLs/', '$build', '*.pyd', is_not_debug),
+    ('DLLs/', '$build', '*.dll', is_not_debug_or_python),
+    ('include/', 'include', '*.h', None),
+    ('include/', 'PC', 'pyconfig.h', None),
+    ('Lib/', 'Lib', '**/*', include_in_lib),
+    ('libs/', '$build', '*.lib', include_in_libs),
+    ('Tools/', 'Tools', '**/*', include_in_tools),
+]
 
 EMBED_LAYOUT = [
+    ('/', '$build', 'python*.exe', is_not_debug),
+    ('/', '$build', '*.pyd', is_not_debug),
+    ('/', '$build', '*.dll', is_not_debug),
     ('dependencies.{0}.{1.name}-{2.major}{2.minor}{2.micro}.zip'.format(sys.platform, sys.implementation, sys.version_info), 'Lib', '**/*', include_in_lib),
 ]
 
+if os.getenv('DOC_FILENAME'):
+    FULL_LAYOUT.append(('Doc/', 'Doc/build/htmlhelp', os.getenv('DOC_FILENAME'), None))
+if os.getenv('VCREDIST_PATH'):
+    FULL_LAYOUT.append(('/', os.getenv('VCREDIST_PATH'), 'vcruntime*.dll', None))
+    EMBED_LAYOUT.append(('/', os.getenv('VCREDIST_PATH'), 'vcruntime*.dll', None))
 
 def copy_to_layout(target, rel_sources):
     count = 0
@@ -85,7 +184,6 @@ def copy_to_layout(target, rel_sources):
 
     return count
 
-
 def rglob(root, pattern, condition):
     dirs = [root]
     recurse = pattern[:3] in {'**/', '**\\'}
@@ -97,18 +195,24 @@ def rglob(root, pattern, condition):
             elif f.is_file() and (not condition or condition(f)):
                 yield f, f.relative_to(root)
 
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', '--source', metavar='dir', help='The directory containing the repository root', type=Path)
     parser.add_argument('-o', '--out', metavar='file', help='The name of the output archive', type=Path, default=None)
     parser.add_argument('-t', '--temp', metavar='dir', help='A directory to temporarily extract files into', type=Path, default=None)
+    parser.add_argument('-e', '--embed', help='Create an embedding layout', action='store_true', default=False)
+    parser.add_argument('-b', '--build', help='Specify the build directory', type=Path)
+    parser.add_argument('-w', '--write_cfg', help='Writes a pyvenv.cfg file.', default=False)
     ns = parser.parse_args()
 
     source = ns.source or (Path(__file__).resolve().parent.parent.parent)
     out = ns.out
+    build = ns.build
+    writecfg = ns.write_cfg
     assert isinstance(source, Path)
     assert not out or isinstance(out, Path)
+    assert isinstance(build, Path)
+
 
     if ns.temp:
         temp = ns.temp
@@ -127,9 +231,21 @@ def main():
     except FileExistsError:
         pass
 
-    layout = EMBED_LAYOUT
+    layout = EMBED_LAYOUT if ns.embed else FULL_LAYOUT
 
     try:
+        for t, s, p, c in layout:
+            if s == '$build':
+                s = build
+            else:
+                s = source / s
+            copied = copy_to_layout(temp / t.rstrip('/'), rglob(s, p, c))
+            # print('Copied {} files'.format(copied))
+
+        # if writecfg:
+            #with open(str(temp / 'pyvenv.cfg'), 'w') as f:
+                # print('applocal = true', file=f)
+
         if out:
             total = copy_to_layout(out, rglob(temp, '**/*', None))
             print('Wrote {} files to {}'.format(total, out))
