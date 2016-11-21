@@ -92,19 +92,17 @@ def include_in_lib(p):
             return False
         if name in {'test', 'tests'} and p.parts[-3].lower() == 'lib':
             return False
-        if PY34:
-            if name == 'asyncio':
-                return False
-        if sys.platform.startswith('linux'):
-            if name == 'cffi':
-                return False
+        if PY34 and name == 'asyncio':
+            return False
+        if name == '_cffi_backend' or 'aiohttp' or 'yarl' or 'pycares' or 'cchardet' or 'nacl' or 'multidict':
+            return False
         return True
 
     if name in EXCLUDE_FILE_FROM_LIBRARY:
         return False
 
     suffix = p.suffix.lower()
-    return suffix not in {'.pyc', '.pyo', '.exe'}
+    return suffix not in {'.pyc', '.pyo', '.exe', '.pyd', '.so'}
 
 def include_in_libs(p):
     if not is_not_debug(p):
