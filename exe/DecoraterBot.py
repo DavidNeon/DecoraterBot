@@ -37,18 +37,23 @@ class runfile:
             self.platform = 'x86'
         elif self.bits == 8:
             self.platform = 'x64'
-        self.filenamecheck = self.filename.replace('py', 'exe')
+        if sys.platform.startswith('linux'):
+            self.exefileext = ""
+            self.filenamecheck = self.filename.replace('.py', '')
+        elif sys.platform.startswith('win'):
+            self.exefileext = ".exe"
+            self.filenamecheck = self.filename.replace('.py', '.exe')
         if self.debug:
             print('DEBUG: {0}'.format(self.filenamecheck))
         self.exedir = None
         if self.exename.find(self.filenamecheck) != -1:
             self.exedir = self.exename.replace(self.filenamecheck, '')
-        self.execheck = self.exename.replace(self.filename.replace('py', '') + '{0}.{1}.{2.name}-{3.major}{3.minor}{3.micro}.exe'.format(self.platform, sys.platform, sys.implementation, sys.version_info), '')
+        self.execheck = self.exename.replace(self.filename.replace('py', '') + '{0}.{1}.{2.name}-{3.major}{3.minor}{3.micro}{4}'.format(self.platform, sys.platform, sys.implementation, sys.version_info, self.exefileext), '')
         if self.debug:
             print('DEBUG: {0}'.format(self.execheck))
         self.execheck2 = None
         if self.exename.find(self.filenamecheck) != -1:
-            self.execheck2 = self.exename.replace(self.filenamecheck, self.filename.replace('py', '') + '{0}.{1}.{2.name}-{3.major}{3.minor}{3.micro}.exe'.format(self.platform, sys.platform, sys.implementation, sys.version_info))
+            self.execheck2 = self.exename.replace(self.filenamecheck, self.filename.replace('py', '') + '{0}.{1}.{2.name}-{3.major}{3.minor}{3.micro}{4}'.format(self.platform, sys.platform, sys.implementation, sys.version_info, self.exefileext))
             if self.debug:
                 print('DEBUG: {0}'.format(self.execheck2))
         self.checkexe()
@@ -96,7 +101,7 @@ class runfile:
 
 bits = ctypes.sizeof(ctypes.c_voidp)
 def main(argv):
-    if len(argv) < 1:
+    if len(argv) < 2:
         if bits == 4:
             runfile('DecoraterBot.py', sys.path[0], False, True)
         if bits == 8:
