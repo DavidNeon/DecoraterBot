@@ -11,6 +11,7 @@ from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 
 PY34 = sys.version_info > (3, 3)
+PY33 = sys.version_info < (3, 4)
 
 TKTCL_RE = re.compile(r'^(_?tk|tcl).+\.(pyd|dll)', re.IGNORECASE)
 DEBUG_RE = re.compile(r'_d\.(pyd|dll|exe|pdb|lib)$', re.IGNORECASE)
@@ -93,8 +94,9 @@ def include_in_lib(p):
         if name in {'test', 'tests'} and p.parts[-3].lower() == 'lib':
             return False
         return True
-        if PY34 and name == 'asyncio':
-            return False
+        if PY33:
+            if name == 'asyncio':
+                return False
         if sys.platform.startswith('win32'):
             if name == '_cffi_backend':
                 return False
