@@ -11,7 +11,6 @@ from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 
 PY34 = sys.version_info > (3, 3)
-PY33 = sys.version_info < (3, 4)
 
 TKTCL_RE = re.compile(r'^(_?tk|tcl).+\.(pyd|dll)', re.IGNORECASE)
 DEBUG_RE = re.compile(r'_d\.(pyd|dll|exe|pdb|lib)$', re.IGNORECASE)
@@ -93,8 +92,7 @@ def include_in_lib(p):
             return False
         if name in {'test', 'tests'} and p.parts[-3].lower() == 'lib':
             return False
-        return True
-        if PY33:
+        if PY34:
             if name == 'asyncio':
                 return False
         if sys.platform.startswith('win32'):
@@ -102,6 +100,7 @@ def include_in_lib(p):
                 return False
         if name == 'aiohttp' or name ==  'yarl' or name == 'pycares' or name == 'cchardet' or name == 'nacl' or name == 'multidict':
             return False
+        return True
 
     if name in EXCLUDE_FILE_FROM_LIBRARY:
         return False
@@ -245,7 +244,7 @@ def main():
             # print('Copied {} files'.format(copied))
 
         # if writecfg:
-            #with open(str(temp / 'pyvenv.cfg'), 'w') as f:
+            # with open(str(temp / 'pyvenv.cfg'), 'w') as f:
                 # print('applocal = true', file=f)
 
         if out:
