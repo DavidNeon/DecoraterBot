@@ -61,6 +61,8 @@ PY35 = sys.version_info >= (3, 5)
 log = logging.getLogger(__name__)
 
 AppInfo = namedtuple('AppInfo', 'id name description icon owner')
+WaitedReaction = namedtuple('WaitedReaction', 'reaction user')
+
 def app_info_icon_url(self):
     """Retrieves the application's icon_url if it exists. Empty string otherwise."""
     if not self.icon:
@@ -69,7 +71,6 @@ def app_info_icon_url(self):
     return 'https://cdn.discordapp.com/app-icons/{0.id}/{0.icon}.jpg'.format(self)
 
 AppInfo.icon_url = property(app_info_icon_url)
-WaitedReaction = namedtuple('WaitedReaction', 'reaction user')
 
 class WaitForType(enum.Enum):
     message  = 0
@@ -451,10 +452,7 @@ class Client:
                 self.ws = yield from DiscordWebSocket.from_client(self, resume=resume)
             except ConnectionClosed as e:
                 yield from self.close()
-                if e.code == 1001:
-                    # lets try to recurse.
-                    yield from self.connect()
-                elif e.code != 1000:
+                if e.code != 1000:
                     raise
 
     @asyncio.coroutine
@@ -980,7 +978,7 @@ class Client:
         Raises
         --------
         HTTPException
-            Adding the reaction failed.
+            Removing the reaction failed.
         Forbidden
             You do not have the proper permissions to remove the reaction.
         NotFound
@@ -1045,7 +1043,29 @@ class Client:
         return [User(**user) for user in data]
 
     @asyncio.coroutine
-    def send_message(self, destination, content, *, tts=False):
+    def clear_reactions(self, message):
+        """|coro|
+
+        Removes all the reactions from a given message.
+
+        You need Manage Messages permission to use this.
+
+        Parameters
+        -----------
+        message: :class:`Message`
+            The message to remove all reactions from.
+
+        Raises
+        --------
+        HTTPException
+            Removing the reactions failed.
+        Forbidden
+            You do not have the proper permissions to remove all the reactions.
+        """
+        yield from self.http.clear_reactions(message.id, message.channel.id)
+
+    @asyncio.coroutine
+    def send_message(self, destination, content=None, *, tts=False, embed=None):
         """|coro|
 
         Sends a message to the destination given with the content given.
@@ -1064,15 +1084,23 @@ class Client:
             ``str`` being allowed was removed and replaced with :class:`Object`.
 
         The content must be a type that can convert to a string through ``str(content)``.
+        If the content is set to ``None`` (the default), then the ``embed`` parameter must
+        be provided.
+
+        If the ``embed`` parameter is provided, it must be of type :class:`Embed` and
+        it must be a rich embed type.
 
         Parameters
         ------------
         destination
             The location to send the message.
         content
-            The content of the message to send.
+            The content of the message to send. If this is missing,
+            then the ``embed`` parameter must be present.
         tts : bool
             Indicates if the message should be sent using text-to-speech.
+        embed: :class:`Embed`
+            The rich embed for the content.
 
         Raises
         --------
@@ -1085,6 +1113,29 @@ class Client:
         InvalidArgument
             The destination parameter is invalid.
 
+        Examples
+        ----------
+
+        Sending a regular message:
+
+        .. code-block:: python
+
+            await client.send_message(message.channel, 'Hello')
+
+        Sending a TTS message:
+
+        .. code-block:: python
+
+            await client.send_message(message.channel, 'Goodbye.', tts=True)
+
+        Sending an embed message:
+
+        .. code-block:: python
+
+            em = discord.Embed(title='My Embed Title', description='My Embed Content.', colour=0xDEADBF)
+            em.set_author(name='Someone', icon_url=client.user.default_avatar_url)
+            await client.send_message(message.channel, embed=em)
+
         Returns
         ---------
         :class:`Message`
@@ -1093,9 +1144,12 @@ class Client:
 
         channel_id, guild_id = yield from self._resolve_destination(destination)
 
-        content = str(content)
+        content = str(content) if content else None
 
-        data = yield from self.http.send_message(channel_id, content, guild_id=guild_id, tts=tts)
+        if embed is not None:
+            embed = embed.to_dict()
+
+        data = yield from self.http.send_message(channel_id, content, guild_id=guild_id, tts=tts, embed=embed)
         channel = self.get_channel(data.get('channel_id'))
         message = self.connection._create_message(channel=channel, **data)
         return message
@@ -1346,12 +1400,18 @@ class Client:
                     ret.append(msg)
 
     @asyncio.coroutine
-    def edit_message(self, message, new_content):
+    def edit_message(self, message, new_content=None, *, embed=None):
         """|coro|
 
         Edits a :class:`Message` with the new message content.
 
         The new_content must be able to be transformed into a string via ``str(new_content)``.
+
+        If the ``new_content`` is not provided, then ``embed`` must be provided, which must
+        be of type :class:`Embed`.
+
+        The :class:`Message` object is not directly modified afterwards until the
+        corresponding WebSocket event is received.
 
         Parameters
         -----------
@@ -1359,6 +1419,8 @@ class Client:
             The message to edit.
         new_content
             The new content to replace the message with.
+        embed: :class:`Embed`
+            The new embed to replace the original embed with.
 
         Raises
         -------
@@ -1372,9 +1434,10 @@ class Client:
         """
 
         channel = message.channel
-        content = str(new_content)
+        content = str(new_content) if new_content else None
+        embed = embed.to_dict() if embed else None
         guild_id = channel.server.id if not getattr(channel, 'is_private', True) else None
-        data = yield from self.http.edit_message(message.id, channel.id, content, guild_id=guild_id)
+        data = yield from self.http.edit_message(message.id, channel.id, content, guild_id=guild_id, embed=embed)
         return self.connection._create_message(channel=channel, **data)
 
     @asyncio.coroutine
@@ -1387,7 +1450,7 @@ class Client:
 
         Parameters
         ------------
-        channel: :class:`Channel`
+        channel: :class:`Channel` or :class:`PrivateChannel`
             The text channel to retrieve the message from.
         id: str
             The message ID to look for.
@@ -1731,7 +1794,8 @@ class Client:
         If a bot account is used then the password field is optional,
         otherwise it is required.
 
-        The profile is **not** edited in place.
+        The :attr:`Client.user` object is not modified directly afterwards until the
+        corresponding WebSocket event is received.
 
         Note
         -----
@@ -1912,7 +1976,8 @@ class Client:
 
         To move the channel's position use :meth:`move_channel` instead.
 
-        The channel is **not** edited in-place.
+        The :class:`Channel` object is not directly modified afterwards until the
+        corresponding WebSocket event is received.
 
         Parameters
         ----------
@@ -1949,7 +2014,8 @@ class Client:
         Moves the specified :class:`Channel` to the given position in the GUI.
         Note that voice channels and text channels have different position values.
 
-        This does **not** edit the channel ordering in place.
+        The :class:`Channel` object is not directly modified afterwards until the
+        corresponding WebSocket event is received.
 
         .. warning::
 
@@ -2219,7 +2285,8 @@ class Client:
 
         You must have the proper permissions to edit the server.
 
-        The server is **not** edited in-place.
+        The :class:`Server` object is not directly modified afterwards until the
+        corresponding WebSocket event is received.
 
         Parameters
         ----------
@@ -2666,7 +2733,8 @@ class Client:
 
         Moves the specified :class:`Role` to the given position in the :class:`Server`.
 
-        This does **not** edit the role ordering in place.
+        The :class:`Role` object is not directly modified afterwards until the
+        corresponding WebSocket event is received.
 
         Parameters
         -----------
@@ -2716,7 +2784,8 @@ class Client:
 
         Edits the specified :class:`Role` for the entire :class:`Server`.
 
-        This does **not** edit the role in place.
+        The :class:`Role` object is not directly modified afterwards until the
+        corresponding WebSocket event is received.
 
         All fields except ``server`` and ``role`` are optional. To change
         the position of a role, use :func:`move_role` instead.
@@ -2798,8 +2867,8 @@ class Client:
 
         You must have the proper permissions to use this function.
 
-        This method **appends** a role to a member but does **not** do it
-        in-place.
+        The :class:`Member` object is not directly modified afterwards until the
+        corresponding WebSocket event is received.
 
         Parameters
         -----------
@@ -2827,7 +2896,8 @@ class Client:
 
         You must have the proper permissions to use this function.
 
-        This method does **not** edit the member in-place.
+        The :class:`Member` object is not directly modified afterwards until the
+        corresponding WebSocket event is received.
 
         Parameters
         -----------
@@ -2865,7 +2935,8 @@ class Client:
         call is ``client.replace_roles(member, d, e, c)`` then
         the member has the roles ``[d, e, c]``.
 
-        This method does **not** edit the member in-place.
+        The :class:`Member` object is not directly modified afterwards until the
+        corresponding WebSocket event is received.
 
         Parameters
         -----------
@@ -3011,7 +3082,7 @@ class Client:
 
         Note
         -----
-        You cannot pass in a :class:`Object` in place of a :class:`Channel`
+        You cannot pass in a :class:`Object` instead of a :class:`Channel`
         object in this function.
 
         Parameters
@@ -3204,7 +3275,7 @@ class Client:
         --------
         :class:`User`
             The user you requested.
- 
+
         Raises
         -------
         NotFound

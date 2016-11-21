@@ -1,5 +1,4 @@
-# coding=utf-8
-# ####################### BEGIN LICENSE BLOCK ########################
+######################## BEGIN LICENSE BLOCK ########################
 # The Original Code is Mozilla Communicator client code.
 #
 # The Initial Developer of the Original Code is
@@ -24,7 +23,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301  USA
-# ######################## END LICENSE BLOCK #########################
+######################### END LICENSE BLOCK #########################
 
 from .euctwfreq import (EUCTWCharToFreqOrder, EUCTW_TABLE_SIZE,
                         EUCTW_TYPICAL_DISTRIBUTION_RATIO)
@@ -44,7 +43,6 @@ SURE_NO = 0.01
 MINIMUM_DATA_THRESHOLD = 3
 
 
-# noinspection PyPep8Naming
 class CharDistributionAnalysis:
     def __init__(self):
         # Mapping table to get frequency order from char order (get from
@@ -58,7 +56,6 @@ class CharDistributionAnalysis:
         self._mTypicalDistributionRatio = None
         self.reset()
 
-    # noinspection PyAttributeOutsideInit
     def reset(self):
         """reset analyser, clear any state"""
         # If this flag is set to True, detection is done and conclusion has
@@ -68,7 +65,6 @@ class CharDistributionAnalysis:
         # The number of characters whose frequency order is less than 512
         self._mFreqChars = 0
 
-    # noinspection PyIncorrectDocstring
     def feed(self, aBuf, aCharLen):
         """feed a character with known length"""
         if aCharLen == 2:
@@ -91,8 +87,8 @@ class CharDistributionAnalysis:
             return SURE_NO
 
         if self._mTotalChars != self._mFreqChars:
-            r = (self._mFreqChars / ((self._mTotalChars - self._mFreqChars) *
-                                     self._mTypicalDistributionRatio))
+            r = (self._mFreqChars / ((self._mTotalChars - self._mFreqChars)
+                 * self._mTypicalDistributionRatio))
             if r < SURE_YES:
                 return r
 
@@ -112,7 +108,6 @@ class CharDistributionAnalysis:
         return -1
 
 
-# noinspection PyPep8Naming
 class EUCTWDistributionAnalysis(CharDistributionAnalysis):
     def __init__(self):
         CharDistributionAnalysis.__init__(self)
@@ -132,7 +127,6 @@ class EUCTWDistributionAnalysis(CharDistributionAnalysis):
             return -1
 
 
-# noinspection PyPep8Naming
 class EUCKRDistributionAnalysis(CharDistributionAnalysis):
     def __init__(self):
         CharDistributionAnalysis.__init__(self)
@@ -152,7 +146,6 @@ class EUCKRDistributionAnalysis(CharDistributionAnalysis):
             return -1
 
 
-# noinspection PyPep8Naming
 class GB2312DistributionAnalysis(CharDistributionAnalysis):
     def __init__(self):
         CharDistributionAnalysis.__init__(self)
@@ -172,7 +165,6 @@ class GB2312DistributionAnalysis(CharDistributionAnalysis):
             return -1
 
 
-# noinspection PyPep8Naming
 class Big5DistributionAnalysis(CharDistributionAnalysis):
     def __init__(self):
         CharDistributionAnalysis.__init__(self)
@@ -195,7 +187,6 @@ class Big5DistributionAnalysis(CharDistributionAnalysis):
             return -1
 
 
-# noinspection PyPep8Naming
 class SJISDistributionAnalysis(CharDistributionAnalysis):
     def __init__(self):
         CharDistributionAnalysis.__init__(self)
@@ -221,7 +212,6 @@ class SJISDistributionAnalysis(CharDistributionAnalysis):
         return order
 
 
-# noinspection PyPep8Naming
 class EUCJPDistributionAnalysis(CharDistributionAnalysis):
     def __init__(self):
         CharDistributionAnalysis.__init__(self)

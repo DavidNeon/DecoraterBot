@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright Jonathan Hartley 2013. BSD 3-Clause license, see LICENSE file.
 
 # from winbase.h
@@ -12,16 +11,13 @@ try:
     from ctypes import wintypes
 except (AttributeError, ImportError):
     windll = None
-    # noinspection PyPep8
     SetConsoleTextAttribute = lambda *_: None
-    # noinspection PyPep8
     winapi_test = lambda *_: None
 else:
     from ctypes import byref, Structure, c_char, POINTER
 
     COORD = wintypes._COORD
 
-    # noinspection PyPep8Naming
     class CONSOLE_SCREEN_BUFFER_INFO(Structure):
         """struct in wincon.h."""
         _fields_ = [
@@ -31,14 +27,13 @@ else:
             ("srWindow", wintypes.SMALL_RECT),
             ("dwMaximumWindowSize", COORD),
         ]
-
         def __str__(self):
             return '(%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d)' % (
-                self.dwSize.Y, self.dwSize.X,
-                self.dwCursorPosition.Y, self.dwCursorPosition.X,
-                self.wAttributes,
-                self.srWindow.Top, self.srWindow.Left, self.srWindow.Bottom, self.srWindow.Right,
-                self.dwMaximumWindowSize.Y, self.dwMaximumWindowSize.X
+                self.dwSize.Y, self.dwSize.X
+                , self.dwCursorPosition.Y, self.dwCursorPosition.X
+                , self.wAttributes
+                , self.srWindow.Top, self.srWindow.Left, self.srWindow.Bottom, self.srWindow.Right
+                , self.dwMaximumWindowSize.Y, self.dwMaximumWindowSize.X
             )
 
     _GetStdHandle = windll.kernel32.GetStdHandle
@@ -106,8 +101,6 @@ else:
             handle, byref(csbi))
         return bool(success)
 
-
-    # noinspection PyUnusedLocal,PyPep8Naming
     def GetConsoleScreenBufferInfo(stream_id=STDOUT):
         handle = handles[stream_id]
         csbi = CONSOLE_SCREEN_BUFFER_INFO()
@@ -115,14 +108,10 @@ else:
             handle, byref(csbi))
         return csbi
 
-
-    # noinspection PyPep8Naming
     def SetConsoleTextAttribute(stream_id, attrs):
         handle = handles[stream_id]
         return _SetConsoleTextAttribute(handle, attrs)
 
-
-    # noinspection PyPep8Naming
     def SetConsoleCursorPosition(stream_id, position, adjust=True):
         position = COORD(*position)
         # If the position is out of range, do nothing.
@@ -141,8 +130,6 @@ else:
         handle = handles[stream_id]
         return _SetConsoleCursorPosition(handle, adjusted_position)
 
-
-    # noinspection PyUnusedLocal,PyPep8Naming
     def FillConsoleOutputCharacter(stream_id, char, length, start):
         handle = handles[stream_id]
         char = c_char(char.encode())
@@ -153,8 +140,6 @@ else:
             handle, char, length, start, byref(num_written))
         return num_written.value
 
-
-    # noinspection PyIncorrectDocstring,PySingleQuotedDocstring,PyPep8Naming
     def FillConsoleOutputAttribute(stream_id, attr, length, start):
         ''' FillConsoleOutputAttribute( hConsole, csbi.wAttributes, dwConSize, coordScreen, &cCharsWritten )'''
         handle = handles[stream_id]
@@ -165,7 +150,5 @@ else:
         return _FillConsoleOutputAttribute(
             handle, attribute, length, start, byref(num_written))
 
-
-    # noinspection PyPep8Naming
     def SetConsoleTitle(title):
         return _SetConsoleTitleW(title)

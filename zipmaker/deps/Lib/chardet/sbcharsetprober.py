@@ -1,5 +1,4 @@
-# coding=utf-8
-# ####################### BEGIN LICENSE BLOCK ########################
+######################## BEGIN LICENSE BLOCK ########################
 # The Original Code is Mozilla Universal charset detector code.
 #
 # The Initial Developer of the Original Code is
@@ -25,7 +24,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301  USA
-# ######################## END LICENSE BLOCK #########################
+######################### END LICENSE BLOCK #########################
 
 import sys
 from . import constants
@@ -39,10 +38,9 @@ NEGATIVE_SHORTCUT_THRESHOLD = 0.05
 SYMBOL_CAT_ORDER = 250
 NUMBER_OF_SEQ_CAT = 4
 POSITIVE_CAT = NUMBER_OF_SEQ_CAT - 1
-# NEGATIVE_CAT = 0
+#NEGATIVE_CAT = 0
 
 
-# noinspection PyAttributeOutsideInit,PyShadowingBuiltins,PyPep8Naming
 class SingleByteCharSetProber(CharSetProber):
     def __init__(self, model, reversed=False, nameProber=None):
         CharSetProber.__init__(self)
@@ -114,8 +112,8 @@ class SingleByteCharSetProber(CharSetProber):
     def get_confidence(self):
         r = 0.01
         if self._mTotalSeqs > 0:
-            r = ((1.0 * self._mSeqCounters[POSITIVE_CAT]) / self._mTotalSeqs /
-                 self._mModel['mTypicalPositiveRatio'])
+            r = ((1.0 * self._mSeqCounters[POSITIVE_CAT]) / self._mTotalSeqs
+                 / self._mModel['mTypicalPositiveRatio'])
             r = r * self._mFreqChar / self._mTotalChar
             if r >= 1.0:
                 r = 0.99

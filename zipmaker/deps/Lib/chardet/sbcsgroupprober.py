@@ -1,5 +1,4 @@
-# coding=utf-8
-# ####################### BEGIN LICENSE BLOCK ########################
+######################## BEGIN LICENSE BLOCK ########################
 # The Original Code is Mozilla Universal charset detector code.
 #
 # The Initial Developer of the Original Code is
@@ -25,7 +24,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301  USA
-# ######################## END LICENSE BLOCK #########################
+######################### END LICENSE BLOCK #########################
 
 from .charsetgroupprober import CharSetGroupProber
 from .sbcharsetprober import SingleByteCharSetProber
@@ -40,7 +39,6 @@ from .langhebrewmodel import Win1255HebrewModel
 from .hebrewprober import HebrewProber
 
 
-# noinspection PyPep8Naming
 class SBCSGroupProber(CharSetGroupProber):
     def __init__(self):
         CharSetGroupProber.__init__(self)

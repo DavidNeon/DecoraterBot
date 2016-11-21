@@ -1,5 +1,4 @@
-# coding=utf-8
-# ####################### BEGIN LICENSE BLOCK ########################
+######################## BEGIN LICENSE BLOCK ########################
 # The Original Code is mozilla.org code.
 #
 # The Initial Developer of the Original Code is
@@ -24,7 +23,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301  USA
-# ######################## END LICENSE BLOCK #########################
+######################### END LICENSE BLOCK #########################
 
 import sys
 from . import constants
@@ -35,7 +34,6 @@ from .jpcntx import EUCJPContextAnalysis
 from .mbcssm import EUCJPSMModel
 
 
-# noinspection PyAttributeOutsideInit,PyPep8Naming
 class EUCJPProber(MultiByteCharSetProber):
     def __init__(self):
         MultiByteCharSetProber.__init__(self)
@@ -58,9 +56,9 @@ class EUCJPProber(MultiByteCharSetProber):
             codingState = self._mCodingSM.next_state(aBuf[i])
             if codingState == constants.eError:
                 if constants._debug:
-                    sys.stderr.write(self.get_charset_name() +
-                                     ' prober hit error at byte ' + str(i) +
-                                     '\n')
+                    sys.stderr.write(self.get_charset_name()
+                                     + ' prober hit error at byte ' + str(i)
+                                     + '\n')
                 self._mState = constants.eNotMe
                 break
             elif codingState == constants.eItsMe:

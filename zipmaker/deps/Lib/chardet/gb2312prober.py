@@ -1,5 +1,4 @@
-# coding=utf-8
-# ####################### BEGIN LICENSE BLOCK ########################
+######################## BEGIN LICENSE BLOCK ########################
 # The Original Code is mozilla.org code.
 #
 # The Initial Developer of the Original Code is
@@ -24,13 +23,12 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301  USA
-# ######################## END LICENSE BLOCK #########################
+######################### END LICENSE BLOCK #########################
 
 from .mbcharsetprober import MultiByteCharSetProber
 from .codingstatemachine import CodingStateMachine
 from .chardistribution import GB2312DistributionAnalysis
 from .mbcssm import GB2312SMModel
-
 
 class GB2312Prober(MultiByteCharSetProber):
     def __init__(self):

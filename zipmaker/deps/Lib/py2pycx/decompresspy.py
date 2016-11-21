@@ -1,5 +1,8 @@
 # coding=utf-8
-import api
+try:
+    from . import api
+except SystemError:
+    import api
 import sys
 import os
 import getopt
@@ -38,6 +41,8 @@ def main(argv):
             print('Error: {0}'.format(str(err)))
         except api.FileNameNotProvided as err:
             print('Error: {0}'.format(str(err)))
+        except api.DecompressionError as err:
+            print('Error: {0}'.format(str(err)))
     else:
         try:
             api.decompress_script(in_path, filename)
@@ -49,6 +54,8 @@ def main(argv):
         except api.FilePathNotProvided as err:
             print('Error: {0}'.format(str(err)))
         except api.FileNameNotProvided as err:
+            print('Error: {0}'.format(str(err)))
+        except api.DecompressionError as err:
             print('Error: {0}'.format(str(err)))
 
 if __name__ == "__main__":

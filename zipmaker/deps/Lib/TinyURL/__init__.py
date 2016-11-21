@@ -11,14 +11,15 @@ TinyURL for Python 3.x
 
 """
 from .TinyURL import create_one, create
+from . import errors
 import logging
 
 __title__ = 'TinyURL'
 __author__ = 'Decorater'
 __license__ = 'MIT'
 __copyright__ = 'Copyright 2016 Decorater'
-__version__ = '0.1.5'
-__build__ = 0x000105
+__version__ = '0.1.7'
+__build__ = 0x000107
 
 try:
     from logging import NullHandler

@@ -262,7 +262,6 @@ class Channel(Hashable):
                 base.handle_overwrite(allow=overwrite.allow, deny=overwrite.deny)
                 break
 
-
         # default channels can always be read
         if self.is_default:
             base.read_messages = True

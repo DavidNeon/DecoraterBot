@@ -1,5 +1,4 @@
-# coding=utf-8
-# ####################### BEGIN LICENSE BLOCK ########################
+######################## BEGIN LICENSE BLOCK ########################
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
 # License as published by the Free Software Foundation; either
@@ -14,13 +13,12 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301  USA
-# ######################## END LICENSE BLOCK #########################
+######################### END LICENSE BLOCK #########################
 
-from sys import version_info
 __version__ = "2.3.0"
+from sys import version_info
 
 
-# noinspection PyPep8Naming
 def detect(aBuf):
     if ((version_info < (3, 0) and isinstance(aBuf, unicode)) or
             (version_info >= (3, 0) and not isinstance(aBuf, bytes))):

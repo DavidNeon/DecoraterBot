@@ -1,5 +1,4 @@
-# coding=utf-8
-# !/usr/bin/env python
+#!/usr/bin/env python
 """
 Script which takes one or more file paths and reports on their detected
 encodings
@@ -20,9 +19,7 @@ import argparse
 import sys
 from io import open
 
-# noinspection PyPackageRequirements
 from chardet import __version__
-# noinspection PyPackageRequirements
 from chardet.universaldetector import UniversalDetector
 
 
@@ -48,7 +45,6 @@ def description_of(lines, name='stdin'):
         return '{0}: no result'.format(name)
 
 
-# noinspection PySingleQuotedDocstring
 def main(argv=None):
     '''
     Handles command line arguments and gets things started.

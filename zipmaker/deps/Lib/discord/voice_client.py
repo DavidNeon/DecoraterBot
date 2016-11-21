@@ -63,7 +63,7 @@ except ImportError:
 
 from . import utils, opus
 from .gateway import *
-from .errors import ClientException, InvalidArgument, ConnectionClosed, VoiceWSTimeoutError
+from .errors import ClientException, InvalidArgument, ConnectionClosed
 
 class StreamPlayer(threading.Thread):
     def __init__(self, stream, encoder, connected, player, after, **kwargs):
@@ -273,16 +273,8 @@ class VoiceClient:
             except ConnectionClosed as e:
                 if e.code == 1000:
                     break
-                elif e.code == 1006:
-                    pass
-                elif e.code == 4003:
-                    # server seems to have crashed.
-                    pass
                 else:
                     raise
-            except VoiceWSTimeoutError:
-                # The goal with the internal exception from this is to suppress it.
-                pass
 
     @asyncio.coroutine
     def disconnect(self):
@@ -350,11 +342,10 @@ class VoiceClient:
         # Copy header to nonce's first 12 bytes
         nonce[:12] = header
 
-        if data is not None:
-            # Encrypt and return the data
-            return header + box.encrypt(bytes(data), bytes(nonce)).ciphertext
+        # Encrypt and return the data
+        return header + box.encrypt(bytes(data), bytes(nonce)).ciphertext
 
-    def create_ffmpeg_player(self, filename, *, use_avconv=False, pipe=False, stderr=None, options=None, before_options=None, headers=None, after=None, output=None):
+    def create_ffmpeg_player(self, filename, *, use_avconv=False, pipe=False, stderr=None, options=None, before_options=None, headers=None, after=None):
         """Creates a stream player for ffmpeg that launches in a separate thread to play
         audio.
 
@@ -399,9 +390,6 @@ class VoiceClient:
         after : callable
             The finalizer that is called after the stream is done being
             played. All exceptions the finalizer throws are silently discarded.
-        output : file ``object`` or ``None``
-            Optionally config ffmpeg's output to a file object if you dont want
-            it to bug out and print ffmpeg wierd crap in your bot's console window.
 
         Raises
         -------
@@ -435,9 +423,8 @@ class VoiceClient:
 
         stdin = None if not pipe else filename
         args = shlex.split(cmd)
-        stdout = None if not output else subprocess.PIPE
         try:
-            p = subprocess.Popen(args, stdin=stdin, stdout=stdout, stderr=stderr)
+            p = subprocess.Popen(args, stdin=stdin, stdout=subprocess.PIPE, stderr=stderr)
             return ProcessPlayer(p, self, after)
         except FileNotFoundError as e:
             raise ClientException('ffmpeg/avconv was not found in your PATH environment variable') from e
@@ -696,10 +683,9 @@ class VoiceClient:
         else:
             encoded_data = data
         packet = self._get_voice_packet(encoded_data)
-        if packet is not None:
-            try:
-                sent = self.socket.sendto(packet, (self.endpoint_ip, self.voice_port))
-            except BlockingIOError:
-                log.warning('A packet has been dropped (seq: {0.sequence}, timestamp: {0.timestamp})'.format(self))
+        try:
+            sent = self.socket.sendto(packet, (self.endpoint_ip, self.voice_port))
+        except BlockingIOError:
+            log.warning('A packet has been dropped (seq: {0.sequence}, timestamp: {0.timestamp})'.format(self))
 
-            self.checked_add('timestamp', self.encoder.samples_per_frame, 4294967295)
+        self.checked_add('timestamp', self.encoder.samples_per_frame, 4294967295)

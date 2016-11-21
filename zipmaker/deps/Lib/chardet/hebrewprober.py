@@ -1,5 +1,4 @@
-# coding=utf-8
-# ####################### BEGIN LICENSE BLOCK ########################
+######################## BEGIN LICENSE BLOCK ########################
 # The Original Code is Mozilla Universal charset detector code.
 #
 # The Initial Developer of the Original Code is
@@ -24,7 +23,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301  USA
-# ######################## END LICENSE BLOCK #########################
+######################### END LICENSE BLOCK #########################
 
 from .charsetprober import CharSetProber
 from .constants import eNotMe, eDetecting
@@ -33,7 +32,7 @@ from .compat import wrap_ord
 # This prober doesn't actually recognize a language or a charset.
 # It is a helper prober for the use of the Hebrew model probers
 
-# ## General ideas of the Hebrew charset recognition ###
+### General ideas of the Hebrew charset recognition ###
 #
 # Four main charsets exist in Hebrew:
 # "ISO-8859-8" - Visual Hebrew
@@ -91,7 +90,7 @@ from .compat import wrap_ord
 #    that x-mac-hebrew texts are so rare, writing another model prober isn't
 #    worth the effort and performance hit.
 #
-# ### The Prober ####
+#### The Prober ####
 #
 # The prober is divided between two SBCharSetProbers and a HebrewProber,
 # all of which are managed, created, fed data, inquired and deleted by the
@@ -153,7 +152,6 @@ VISUAL_HEBREW_NAME = "ISO-8859-8"
 LOGICAL_HEBREW_NAME = "windows-1255"
 
 
-# noinspection PyAttributeOutsideInit
 class HebrewProber(CharSetProber):
     def __init__(self):
         CharSetProber.__init__(self)
@@ -171,7 +169,6 @@ class HebrewProber(CharSetProber):
         self._mBeforePrev = ' '
         # These probers are owned by the group prober.
 
-    # noinspection PyPep8Naming
     def set_model_probers(self, logicalProber, visualProber):
         self._mLogicalProber = logicalProber
         self._mVisualProber = visualProber
@@ -193,7 +190,6 @@ class HebrewProber(CharSetProber):
         # since these words are quite rare.
         return wrap_ord(c) in [NORMAL_KAF, NORMAL_MEM, NORMAL_NUN, NORMAL_PE]
 
-    # noinspection PyPep8Naming
     def feed(self, aBuf):
         # Final letter analysis for logical-visual decision.
         # Look for evidence that the received buffer is either logical Hebrew
@@ -263,8 +259,8 @@ class HebrewProber(CharSetProber):
             return VISUAL_HEBREW_NAME
 
         # It's not dominant enough, try to rely on the model scores instead.
-        modelsub = (self._mLogicalProber.get_confidence() -
-                    self._mVisualProber.get_confidence())
+        modelsub = (self._mLogicalProber.get_confidence()
+                    - self._mVisualProber.get_confidence())
         if modelsub > MIN_MODEL_DISTANCE:
             return LOGICAL_HEBREW_NAME
         if modelsub < -MIN_MODEL_DISTANCE:

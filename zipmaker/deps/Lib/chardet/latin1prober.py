@@ -1,5 +1,4 @@
-# coding=utf-8
-# ####################### BEGIN LICENSE BLOCK ########################
+######################## BEGIN LICENSE BLOCK ########################
 # The Original Code is Mozilla Universal charset detector code.
 #
 # The Initial Developer of the Original Code is
@@ -25,7 +24,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301  USA
-# ######################## END LICENSE BLOCK #########################
+######################### END LICENSE BLOCK #########################
 
 from .charsetprober import CharSetProber
 from .constants import eNotMe
@@ -95,7 +94,6 @@ Latin1ClassModel = (
 )
 
 
-# noinspection PyAttributeOutsideInit,PyAttributeOutsideInit,PyAttributeOutsideInit,PyAttributeOutsideInit,PyPep8Naming
 class Latin1Prober(CharSetProber):
     def __init__(self):
         CharSetProber.__init__(self)
@@ -113,8 +111,8 @@ class Latin1Prober(CharSetProber):
         aBuf = self.filter_with_english_letters(aBuf)
         for c in aBuf:
             charClass = Latin1_CharToClass[wrap_ord(c)]
-            freq = Latin1ClassModel[(self._mLastCharClass * CLASS_NUM) +
-                                    charClass]
+            freq = Latin1ClassModel[(self._mLastCharClass * CLASS_NUM)
+                                    + charClass]
             if freq == 0:
                 self._mState = eNotMe
                 break
@@ -131,8 +129,8 @@ class Latin1Prober(CharSetProber):
         if total < 0.01:
             confidence = 0.0
         else:
-            confidence = ((self._mFreqCounter[3] - self._mFreqCounter[1] * 20.0) /
-                          total)
+            confidence = ((self._mFreqCounter[3] - self._mFreqCounter[1] * 20.0)
+                          / total)
         if confidence < 0.0:
             confidence = 0.0
         # lower the confidence of latin1 so that other more accurate

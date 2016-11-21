@@ -82,7 +82,6 @@ class Status(Enum):
     do_not_disturb = 'dnd'
     invisible = 'invisible'
 
-
     def __str__(self):
         return self.value
 

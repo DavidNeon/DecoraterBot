@@ -75,7 +75,7 @@ class HTTPClient:
         self.token = None
         self.bot_token = False
 
-        user_agent = 'DiscordBot (https://github.com/Cheeselab/discord.py {0}) Python/{1[0]}.{1[1]} aiohttp/{2}'
+        user_agent = 'DiscordBot (https://github.com/Rapptz/discord.py {0}) Python/{1[0]}.{1[1]} aiohttp/{2}'
         self.user_agent = user_agent.format(__version__, sys.version_info, aiohttp.__version__)
 
     @asyncio.coroutine
@@ -180,11 +180,8 @@ class HTTPClient:
             data = yield from self.post(self.LOGIN, json=payload, bucket=_func_())
         except HTTPException as e:
             if e.response.status == 400:
-                yield from self.close()
                 raise LoginFailure('Improper credentials have been passed.') from e
-            else:
-                yield from self.close()
-                raise
+            raise
 
         self._token(data['token'], bot=False)
         return data
@@ -216,15 +213,20 @@ class HTTPClient:
 
         return self.post(self.ME + '/channels', json=payload, bucket=_func_())
 
-    def send_message(self, channel_id, content, *, guild_id=None, tts=False):
+    def send_message(self, channel_id, content, *, guild_id=None, tts=False, embed=None):
         url = '{0.CHANNELS}/{1}/messages'.format(self, channel_id)
         payload = {
-            'content': str(content),
             'nonce': random_integer(-2**63, 2**63 - 1)
         }
 
+        if content:
+            payload['content'] = content
+
         if tts:
             payload['tts'] = True
+
+        if embed:
+            payload['embed'] = embed
 
         return self.post(url, json=payload, bucket='messages:' + str(guild_id))
 
@@ -257,11 +259,16 @@ class HTTPClient:
         bucket = '{}:{}'.format(_func_(), guild_id)
         return self.post(url, json=payload, bucket=bucket)
 
-    def edit_message(self, message_id, channel_id, content, *, guild_id=None):
+    def edit_message(self, message_id, channel_id, content, *, guild_id=None, embed=None):
         url = '{0.CHANNELS}/{1}/messages/{2}'.format(self, channel_id, message_id)
-        payload = {
-            'content': str(content)
-        }
+        payload = {}
+
+        if content:
+            payload['content'] = content
+
+        if embed:
+            payload['embed'] = embed
+
         return self.patch(url, json=payload, bucket='messages:' + str(guild_id))
 
     def add_reaction(self, message_id, channel_id, emoji):
@@ -281,6 +288,10 @@ class HTTPClient:
         if after:
             params['after'] = after
         return self.get(url, params=params, bucket='%s:%s' % (_func_(), channel_id))
+
+    def clear_reactions(self, message_id, channel_id):
+        url = '{0.CHANNELS}/{1}/messages/{2}/reactions'.format(self, channel_id, message_id)
+        return self.delete(url, bucket='%s:%s' % (_func_(), channel_id))
 
     def get_message(self, channel_id, message_id):
         url = '{0.CHANNELS}/{1}/messages/{2}'.format(self, channel_id, message_id)
@@ -523,6 +534,14 @@ class HTTPClient:
     def create_role(self, guild_id):
         url = '{0.GUILDS}/{1}/roles'.format(self, guild_id)
         return self.post(url, bucket=_func_())
+
+    def add_role(self, guild_id, member_id, role_id):
+        url = '{0.GUILDS}/{1}/members/{2}/{3}'.format(self, guild_id, member_id, role_id)
+        return self.put(url, bucket='%s:%s' % (_func_(), guild_id))
+
+    def remove_role(self, guild_id, member_id, role_id):
+        url = '{0.GUILDS}/{1}/members/{2}/{3}'.format(self, guild_id, member_id, role_id)
+        return self.delete(url, bucket='%s:%s' % (_func_(), guild_id))
 
     def edit_channel_permissions(self, channel_id, target, allow, deny, type):
         url = '{0.CHANNELS}/{1}/permissions/{2}'.format(self, channel_id, target)

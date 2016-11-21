@@ -1,5 +1,4 @@
-# coding=utf-8
-# ####################### BEGIN LICENSE BLOCK ########################
+######################## BEGIN LICENSE BLOCK ########################
 # The Original Code is Mozilla Universal charset detector code.
 #
 # The Initial Developer of the Original Code is
@@ -25,7 +24,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301  USA
-# ######################## END LICENSE BLOCK #########################
+######################### END LICENSE BLOCK #########################
 
 from . import constants
 import sys
@@ -42,7 +41,6 @@ eEscAscii = 1
 eHighbyte = 2
 
 
-# noinspection PyUnusedLocal,PyAttributeOutsideInit,PyPep8Naming
 class UniversalDetector:
     def __init__(self):
         self._highBitDetector = re.compile(b'[\x80-\xFF]')

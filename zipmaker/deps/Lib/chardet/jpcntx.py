@@ -1,5 +1,4 @@
-# coding=utf-8
-# ####################### BEGIN LICENSE BLOCK ########################
+######################## BEGIN LICENSE BLOCK ########################
 # The Original Code is Mozilla Communicator client code.
 #
 # The Initial Developer of the Original Code is
@@ -24,7 +23,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301  USA
-# ######################## END LICENSE BLOCK #########################
+######################### END LICENSE BLOCK #########################
 
 from .compat import wrap_ord
 
@@ -121,13 +120,10 @@ jp2CharContext = (
 (0,4,0,3,0,3,0,3,0,3,5,5,3,3,3,3,4,3,4,3,3,3,4,4,4,3,3,3,3,4,3,5,3,3,1,3,2,4,5,5,5,5,4,3,4,5,5,3,2,2,3,3,3,3,2,3,3,1,2,3,2,4,3,3,3,4,0,4,0,2,0,4,3,2,2,1,2,0,3,0,0,4,1),
 )
 
-
-# noinspection PyPep8Naming
 class JapaneseContextAnalysis:
     def __init__(self):
         self.reset()
 
-    # noinspection PyAttributeOutsideInit
     def reset(self):
         self._mTotalRel = 0  # total sequence received
         # category counters, each interger counts sequence in its category
@@ -140,7 +136,6 @@ class JapaneseContextAnalysis:
         # been made
         self._mDone = False
 
-    # noinspection PyAttributeOutsideInit
     def feed(self, aBuf, aLen):
         if self._mDone:
             return
@@ -181,10 +176,7 @@ class JapaneseContextAnalysis:
     def get_order(self, aBuf):
         return -1, 1
 
-
-# noinspection PyPep8Naming
 class SJISContextAnalysis(JapaneseContextAnalysis):
-    # noinspection PyMissingConstructor
     def __init__(self):
         self.charset_name = "SHIFT_JIS"
 
@@ -196,7 +188,7 @@ class SJISContextAnalysis(JapaneseContextAnalysis):
             return -1, 1
         # find out current char's byte length
         first_char = wrap_ord(aBuf[0])
-        if (0x81 <= first_char <= 0x9F) or (0xE0 <= first_char <= 0xFC):
+        if ((0x81 <= first_char <= 0x9F) or (0xE0 <= first_char <= 0xFC)):
             charLen = 2
             if (first_char == 0x87) or (0xFA <= first_char <= 0xFC):
                 self.charset_name = "CP932"
@@ -211,8 +203,6 @@ class SJISContextAnalysis(JapaneseContextAnalysis):
 
         return -1, charLen
 
-
-# noinspection PyPep8Naming
 class EUCJPContextAnalysis(JapaneseContextAnalysis):
     def get_order(self, aBuf):
         if not aBuf:

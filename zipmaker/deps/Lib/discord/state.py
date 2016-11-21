@@ -272,17 +272,13 @@ class ConnectionState:
             channel = self.get_channel(data['channel_id'])
             member = self._get_member(channel, data['user_id'])
 
-            self.dispatch('message_reaction_add', message, reaction, member)
+            self.dispatch('reaction_add', reaction, member)
 
     def parse_message_reaction_remove(self, data):
         message = self._get_message(data['message_id'])
         if message is not None:
-            if data['emoji']['id']:
-                reaction_emoji = Emoji(server=None, **data['emoji'])
-            else:
-                reaction_emoji = data['emoji']['name']
-            reaction = utils.get(
-                message.reactions, emoji=reaction_emoji)
+            emoji = self._get_reaction_emoji(**data['emoji'])
+            reaction = utils.get(message.reactions, emoji=emoji)
 
             # if reaction isn't in the list, we crash. This means discord
             # sent bad data, or we stored improperly
@@ -295,7 +291,7 @@ class ConnectionState:
             channel = self.get_channel(data['channel_id'])
             member = self._get_member(channel, data['user_id'])
 
-            self.dispatch('message_reaction_remove', message, reaction, member)
+            self.dispatch('reaction_remove', reaction, member)
 
     def parse_presence_update(self, data):
         server = self._get_server(data.get('guild_id'))

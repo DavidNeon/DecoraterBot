@@ -123,14 +123,3 @@ class ConnectionClosed(ClientException):
         self.code = original.code
         self.reason = original.reason
         super().__init__(str(original))
-
-class VoiceWSTimeoutError(ClientException):
-    """Exception that is thown when a concurrent.futures._base.TimeoutError is Thrown.
-
-    This essentially makes it easier to track Timeout Error on the Voice Websocket
-    instead of the main one."""
-    pass
-
-class InvalidServerError(ClientException):
-    """Exception that is closed when a server is invalid for some reason."""
-    pass

@@ -1,5 +1,8 @@
 # coding=utf-8
-import api
+try:
+    from . import api
+except SystemError:
+    import api
 import sys
 import os
 import getopt

@@ -1,26 +1,23 @@
-# coding=utf-8
 # Copyright Jonathan Hartley 2013. BSD 3-Clause license, see LICENSE file.
 from . import win32
 
 
 # from wincon.h
 class WinColor(object):
-    BLACK = 0
-    BLUE = 1
-    GREEN = 2
-    CYAN = 3
-    RED = 4
+    BLACK   = 0
+    BLUE    = 1
+    GREEN   = 2
+    CYAN    = 3
+    RED     = 4
     MAGENTA = 5
-    YELLOW = 6
-    GREY = 7
-
+    YELLOW  = 6
+    GREY    = 7
 
 # from wincon.h
 class WinStyle(object):
-    NORMAL = 0x00  # dim text, dim background
-    BRIGHT = 0x08  # bright text, dim background
-    BRIGHT_BACKGROUND = 0x80  # dim text, bright background
-
+    NORMAL              = 0x00 # dim text, dim background
+    BRIGHT              = 0x08 # bright text, dim background
+    BRIGHT_BACKGROUND   = 0x80 # dim text, bright background
 
 class WinTerm(object):
 
@@ -39,18 +36,15 @@ class WinTerm(object):
     def get_attrs(self):
         return self._fore + self._back * 16 + (self._style | self._light)
 
-    # noinspection PyAttributeOutsideInit
     def set_attrs(self, value):
         self._fore = value & 7
         self._back = (value >> 4) & 7
         self._style = value & (WinStyle.BRIGHT | WinStyle.BRIGHT_BACKGROUND)
 
-    # noinspection PyUnusedLocal
     def reset_all(self, on_stderr=None):
         self.set_attrs(self._default)
         self.set_console(attrs=self._default)
 
-    # noinspection PyAttributeOutsideInit
     def fore(self, fore=None, light=False, on_stderr=False):
         if fore is None:
             fore = self._default_fore
@@ -62,7 +56,6 @@ class WinTerm(object):
             self._light &= ~WinStyle.BRIGHT
         self.set_console(on_stderr=on_stderr)
 
-    # noinspection PyAttributeOutsideInit
     def back(self, back=None, light=False, on_stderr=False):
         if back is None:
             back = self._default_back
@@ -74,7 +67,6 @@ class WinTerm(object):
             self._light &= ~WinStyle.BRIGHT_BACKGROUND
         self.set_console(on_stderr=on_stderr)
 
-    # noinspection PyAttributeOutsideInit
     def style(self, style=None, on_stderr=False):
         if style is None:
             style = self._default_style
@@ -115,7 +107,6 @@ class WinTerm(object):
         adjusted_position = (position.Y + y, position.X + x)
         win32.SetConsoleCursorPosition(handle, adjusted_position, adjust=False)
 
-    # noinspection PyUnboundLocalVariable
     def erase_screen(self, mode=0, on_stderr=False):
         # 0 should clear from the cursor to the end of the screen.
         # 1 should clear from the cursor to the beginning of the screen.
@@ -145,7 +136,6 @@ class WinTerm(object):
             # put the cursor where needed
             win32.SetConsoleCursorPosition(handle, (1, 1))
 
-    # noinspection PyUnboundLocalVariable
     def erase_line(self, mode=0, on_stderr=False):
         # 0 should clear from the cursor to the end of the line.
         # 1 should clear from the cursor to the beginning of the line.

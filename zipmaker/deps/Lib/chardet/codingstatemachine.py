@@ -1,5 +1,4 @@
-# coding=utf-8
-# ####################### BEGIN LICENSE BLOCK ########################
+######################## BEGIN LICENSE BLOCK ########################
 # The Original Code is mozilla.org code.
 #
 # The Initial Developer of the Original Code is
@@ -24,7 +23,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301  USA
-# ######################## END LICENSE BLOCK #########################
+######################### END LICENSE BLOCK #########################
 
 from .constants import eStart
 from .compat import wrap_ord
@@ -37,11 +36,9 @@ class CodingStateMachine:
         self._mCurrentCharLen = 0
         self.reset()
 
-    # noinspection PyAttributeOutsideInit
     def reset(self):
         self._mCurrentState = eStart
 
-    # noinspection PyPep8Naming,PyAttributeOutsideInit
     def next_state(self, c):
         # for each byte we get its class
         # if it is first byte, we also get byte length
@@ -51,8 +48,8 @@ class CodingStateMachine:
             self._mCurrentBytePos = 0
             self._mCurrentCharLen = self._mModel['charLenTable'][byteCls]
         # from byte's class and stateTable, we get its next state
-        curr_state = (self._mCurrentState * self._mModel['classFactor'] +
-                      byteCls)
+        curr_state = (self._mCurrentState * self._mModel['classFactor']
+                      + byteCls)
         self._mCurrentState = self._mModel['stateTable'][curr_state]
         self._mCurrentBytePos += 1
         return self._mCurrentState

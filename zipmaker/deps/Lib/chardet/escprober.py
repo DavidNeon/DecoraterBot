@@ -1,5 +1,4 @@
-# coding=utf-8
-# ####################### BEGIN LICENSE BLOCK ########################
+######################## BEGIN LICENSE BLOCK ########################
 # The Original Code is mozilla.org code.
 #
 # The Initial Developer of the Original Code is
@@ -24,7 +23,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301  USA
-# ######################## END LICENSE BLOCK #########################
+######################### END LICENSE BLOCK #########################
 
 from . import constants
 from .escsm import (HZSMModel, ISO2022CNSMModel, ISO2022JPSMModel,
@@ -34,7 +33,6 @@ from .codingstatemachine import CodingStateMachine
 from .compat import wrap_ord
 
 
-# noinspection PyAttributeOutsideInit
 class EscCharSetProber(CharSetProber):
     def __init__(self):
         CharSetProber.__init__(self)
@@ -65,7 +63,6 @@ class EscCharSetProber(CharSetProber):
         else:
             return 0.00
 
-    # noinspection PyPep8Naming
     def feed(self, aBuf):
         for c in aBuf:
             # PY3K: aBuf is a byte array, so c is an int, not a byte

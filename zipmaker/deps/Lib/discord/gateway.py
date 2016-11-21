@@ -26,13 +26,12 @@ DEALINGS IN THE SOFTWARE.
 
 import sys
 import websockets
-import concurrent
 import asyncio
 import aiohttp
 from . import utils, compat
 from .enums import Status, try_enum
 from .game import Game
-from .errors import GatewayNotFound, ConnectionClosed, InvalidArgument, VoiceWSTimeoutError, InvalidServerError
+from .errors import GatewayNotFound, ConnectionClosed, InvalidArgument
 import logging
 import zlib, time, json
 from collections import namedtuple
@@ -445,7 +444,6 @@ class DiscordWebSocket(websockets.client.WebSocketClientProtocol):
             me.game = game
             me.status = status_enum
 
-
     @asyncio.coroutine
     def request_sync(self, guild_ids):
         payload = {
@@ -589,7 +587,7 @@ class DiscordVoiceWebSocket(websockets.client.WebSocketClientProtocol):
         struct.pack_into('>I', packet, 0, state.ssrc)
         state.socket.sendto(packet, (state.endpoint_ip, state.voice_port))
         recv = yield from self.loop.sock_recv(state.socket, 70)
-        log.debug('received packet in initial_connection: {!r}'.format(recv))
+        log.debug('received packet in initial_connection: {}'.format(recv))
 
         # the ip is ascii starting at the 4th byte and ending at the first null
         ip_start = 4
@@ -615,13 +613,8 @@ class DiscordVoiceWebSocket(websockets.client.WebSocketClientProtocol):
         try:
             msg = yield from asyncio.wait_for(self.recv(), timeout=30.0, loop=self.loop)
             yield from self.received_message(json.loads(msg))
-        except concurrent.futures._base.TimeoutError as err:
-            raise VoiceWSTimeoutError(err) from err
         except websockets.exceptions.ConnectionClosed as e:
-            if e.code == 4002:  # this means invalid server.
-                raise InvalidServerError(e) from e
-            else:
-                raise ConnectionClosed(e) from e
+            raise ConnectionClosed(e) from e
 
     @asyncio.coroutine
     def close_connection(self, force=False):

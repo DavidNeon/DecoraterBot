@@ -63,6 +63,13 @@ class NoPasswordPresent(BaseErrors):
     pass
 
 
+class DecompressionError(BaseErrors):
+    '''
+    Exception for when a zlib Error for depmpressing a pycx or pyccx file happens.
+    '''
+    pass
+
+
 def compress_script(filepath, filename, cz_level=None):
     '''
     Compresses a Python Script.
@@ -100,7 +107,7 @@ def compress_script(filepath, filename, cz_level=None):
 
 def compress_protected_script(filepath, filename, cz_level=None, password=None):
     '''
-    Same as decompress_script() but is for Decompressing password Protected pycx files.
+    Same as compress_script() but is for Compressing password Protected pycx files.
 
     Password must be a byte string. This Function will then add the byte string in to the
     file (in a compressed form ofc).
@@ -140,6 +147,83 @@ def compress_protected_script(filepath, filename, cz_level=None, password=None):
         raise FilePathNotProvided('A File Path was not provided to compress a python script file.')
 
 
+def compress_bytecode(filepath, filename, cz_level=None):
+    '''
+    Compresses a Python pyc file.
+    :param filepath: Path to the file to compress.
+    :param filename: File name to compress.
+    :param cz_level: Compression level (Max is 9) If None is provided then default is level 9.
+    :return: None
+    '''
+    notfound = False
+    if filepath is not None:
+        if filename is not None:
+            if cz_level is None:
+                cz_level = 9
+            filedata = None
+            try:
+                file = io.open(filepath + filename + '.pyc', "rb")
+                if file is not None:
+                    filedata = file.read()
+                    file.close()
+                base64data = base64.b64encode(filedata)
+                czfiledata = b'PYCCX' + zlib.compress(base64data, cz_level)
+                czfileobj = open(filepath + filename + '.pyccx', 'wb')
+                if czfileobj is not None:
+                    czfileobj.write(czfiledata)
+                    czfileobj.close()
+            except FileNotFoundError:
+                notfound = True
+            if notfound:
+                raise FileNotFound('{0}.pyc was not found.'.format(filename))
+        else:
+            raise FileNameNotProvided('A File Name was not provided to compress a python Bytecode file.')
+    else:
+        raise FilePathNotProvided('A File Path was not provided to compress a python Bytecode file.')
+
+
+def compress_protected_bytecode(filepath, filename, cz_level=None, password=None):
+    '''
+    Same as compress_bytecode() but is for Compressing password Protected pyccx files.
+
+    Password must be a byte string. This Function will then add the byte string in to the
+    file (in a compressed form ofc).
+    :param filepath: Path to the file to compress.
+    :param filename: File name to compress.
+    :param cz_level: Compression level (Max is 9) If None is provided then default is level 9.
+    :return: None
+    '''
+    notfound = False
+    if filepath is not None:
+        if filename is not None:
+            if password is not None:
+                pswdata = b'&pw=' + base64.b64encode(password)
+                if cz_level is None:
+                    cz_level = 9
+                filedata = None
+                try:
+                    file = io.open(filepath + filename + '.pyc', "rb")
+                    if file is not None:
+                        filedata = file.read()
+                        file.close()
+                    base64data = base64.b64encode(filedata)
+                    czfiledata = b'PYCCX' + pswdata + zlib.compress(base64data, cz_level)
+                    czfileobj = open(filepath + filename + '.pyccx', 'wb')
+                    if czfileobj is not None:
+                        czfileobj.write(czfiledata)
+                        czfileobj.close()
+                except FileNotFoundError:
+                    notfound = True
+                if notfound:
+                    raise FileNotFound('{0}.pyc was not found.'.format(filename))
+            else:
+                raise NoPasswordSpecified('A Password was not specified to compress {0}.pyccx'.format(filename))
+        else:
+            raise FileNameNotProvided('A File Name was not provided to compress a python Bytecode file.')
+    else:
+        raise FilePathNotProvided('A File Path was not provided to compress a python Bytecode file.')
+
+
 def decompress_script(filepath, filename):
     '''
     Decompresses a Python Script.
@@ -158,14 +242,17 @@ def decompress_script(filepath, filename):
                     filedata = filedata[len(b'PYCX'):].strip()
                     file.close()
                 if filedata.startswith(b'&pw='):
-                    raise PasswordProtectedError('Cannot Cecompress {0}.pycx due to Password Protection on the file.'.format(filename))
+                    raise PasswordProtectedError('Cannot Decompress {0}.pycx due to Password Protection on the file.'.format(filename))
                 else:
-                    decczfiledata = zlib.decompress(filedata)
-                    base64decodeddata = base64.b64decode(decczfiledata)
-                    decczfileobj = open(filepath + filename + '.py', 'wb')
-                    if decczfileobj is not None:
-                        decczfileobj.write(base64decodeddata)
-                        decczfileobj.close()
+                    try:
+                        decczfiledata = zlib.decompress(filedata)
+                        base64decodeddata = base64.b64decode(decczfiledata)
+                        decczfileobj = open(filepath + filename + '.py', 'wb')
+                        if decczfileobj is not None:
+                            decczfileobj.write(base64decodeddata)
+                            decczfileobj.close()
+                    except zlib.error as ex:
+                        raise DecompressionError(str(ex))
             except FileNotFoundError:
                 notfound = True
             if notfound:
@@ -203,12 +290,15 @@ def decompress_protected_script(filepath, filename, password=None):
                         filedata = filedata[len(b'&pw='):].strip()
                         if filedata.startswith(pswdata):
                             filedata = filedata.strip(pswdata)
-                            decczfiledata = zlib.decompress(filedata)
-                            base64decodeddata = base64.b64decode(decczfiledata)
-                            decczfileobj = open(filepath + filename + '.py', 'wb')
-                            if decczfileobj is not None:
-                                decczfileobj.write(base64decodeddata)
-                                decczfileobj.close()
+                            try:
+                                decczfiledata = zlib.decompress(filedata)
+                                base64decodeddata = base64.b64decode(decczfiledata)
+                                decczfileobj = open(filepath + filename + '.py', 'wb')
+                                if decczfileobj is not None:
+                                    decczfileobj.write(base64decodeddata)
+                                    decczfileobj.close()
+                            except zlib.error as ex:
+                                raise DecompressionError(str(ex))
                         else:
                             raise InvalidPassword('The Password Provided is Incorrect.')
                     else:
@@ -225,6 +315,97 @@ def decompress_protected_script(filepath, filename, password=None):
         raise FilePathNotProvided('A File Path was not provided to decompress a compressed python script file.')
 
 
+def decompress_bytecode(filepath, filename):
+    '''
+    Decompresses a Python Script.
+    :param filepath: Path to the file to decompress.
+    :param filename: File name to decompress.
+    :return: None
+    '''
+    notfound = False
+    if filepath is not None:
+        if filename is not None:
+            filedata = None
+            try:
+                file = io.open(filepath + filename + '.pyccx', "rb")
+                if file is not None:
+                    filedata = file.read()
+                    filedata = filedata[len(b'PYCCX'):].strip()
+                    file.close()
+                if filedata.startswith(b'&pw='):
+                    raise PasswordProtectedError('Cannot Decompress {0}.pyccx due to Password Protection on the file.'.format(filename))
+                else:
+                    try:
+                        decczfiledata = zlib.decompress(filedata)
+                        base64decodeddata = base64.b64decode(decczfiledata)
+                        decczfileobj = open(filepath + filename + '.pyc', 'wb')
+                        if decczfileobj is not None:
+                            decczfileobj.write(base64decodeddata)
+                            decczfileobj.close()
+                    except zlib.error as ex:
+                        raise DecompressionError(str(ex))
+            except FileNotFoundError:
+                notfound = True
+            if notfound:
+                raise FileNotFound('{0}.pyccx was not found.'.format(filename))
+        else:
+            raise FileNameNotProvided('A File Name was not provided to decompress a compressed python Bytecode file.')
+    else:
+        raise FilePathNotProvided('A File Path was not provided to decompress a compressed python Bytecode file.')
+
+
+def decompress_protected_bytecode(filepath, filename, password=None):
+    '''
+    Same as decompress_bytecode() but is for Decompressing password Protected pycx files.
+
+    Password must be a byte string. This Function will then check and see if the byte string
+    is in the file (in a compressed form ofc).
+    :param filepath: Path to the file to decompress.
+    :param filename: File name to decompress.
+    :param password: byte string.
+    :return: None
+    '''
+    notfound = False
+    if filepath is not None:
+        if filename is not None:
+            if password is not None:
+                pswdata = base64.b64encode(password)
+                filedata = None
+                try:
+                    file = io.open(filepath + filename + '.pyccx', "rb")
+                    if file is not None:
+                        filedata = file.read()
+                        filedata = filedata[len(b'PYCCX'):].strip()
+                        file.close()
+                    if filedata.startswith(b'&pw='):
+                        filedata = filedata[len(b'&pw='):].strip()
+                        if filedata.startswith(pswdata):
+                            filedata = filedata.strip(pswdata)
+                            try:
+                                decczfiledata = zlib.decompress(filedata)
+                                base64decodeddata = base64.b64decode(decczfiledata)
+                                decczfileobj = open(filepath + filename + '.pyc', 'wb')
+                                if decczfileobj is not None:
+                                    decczfileobj.write(base64decodeddata)
+                                    decczfileobj.close()
+                            except zlib.error as ex:
+                                raise DecompressionError(str(ex))
+                        else:
+                            raise InvalidPassword('The Password Provided is Incorrect.')
+                    else:
+                        raise NoPasswordPresent('The file {0}.pyccx is not Password Protected.'.format(filename))
+                except FileNotFoundError:
+                    notfound = True
+                if notfound:
+                    raise FileNotFound('{0}.pyccx was not found.'.format(filename))
+            else:
+                raise NoPasswordSpecified('A Password was not specified to decompress {0}.pyccx'.format(filename))
+        else:
+            raise FileNameNotProvided('A File Name was not provided to decompress a compressed python Bytecode file.')
+    else:
+        raise FilePathNotProvided('A File Path was not provided to decompress a compressed python Bytecode file.')
+
+
 def this_is_not_a_function_to_keep_this_coment_in_byte_codes():
     '''
     I would like for the data returned from this to be importable without  having to cache (only if 
@@ -236,17 +417,12 @@ def this_is_not_a_function_to_keep_this_coment_in_byte_codes():
     Sadly this means somehow either recoding the original import statement in probably the C code to python itself.
     or finding how it reads from the pyc files (hopefully from within a python script).
     __init__.py:
-        Normal Size: 598 bytes
-        Compressed Size: 492 bytes
+        Normal Size: 568 bytes
+        Compressed Size: 498 bytes
     api.py (this file):
-        Normal Size: 13603 bytes
-        Compressed Size: 4163 bytes
-    compresspy.py:
-        Normal Size: 1810 bytes
-        Compressed Size: 937 bytes
-    decompresspy.py:
-        Normal Size: 1946 bytes
-        Compressed Size: 930 bytes
+        Normal Size: 25296 bytes
+        Compressed Size: 5570 bytes
+        PYCCX Compressed Size: 4163 bytes
     '''
     pass
 
@@ -278,9 +454,12 @@ def dec_script(filepath, filename):
                 filedata = file.read()
                 filedata = filedata.strip(b'PYCX')
                 file.close()
-            decczfiledata = zlib.decompress(filedata)
-            base64decodeddata = base64.b64decode(decczfiledata)
-            return base64decodeddata
+            try:
+                decczfiledata = zlib.decompress(filedata)
+                base64decodeddata = base64.b64decode(decczfiledata)
+                return base64decodeddata
+            except zlib.error as ex:
+                raise DecompressionError(str(ex))
         else:
             raise FileNameNotProvided('A File Name was not provided to decompress a compressed python script file.')
     else:
@@ -309,9 +488,12 @@ def dec_protected_script(filepath, filename, password=None):
                     filedata = filedata[len(b'&pw='):].strip()
                     if filedata.startswith(pswdata):
                         filedata = filedata[len(pswdata):].strip()
-                        decczfiledata = zlib.decompress(filedata)
-                        base64decodeddata = base64.b64decode(decczfiledata)
-                        return base64decodeddata
+                        try:
+                            decczfiledata = zlib.decompress(filedata)
+                            base64decodeddata = base64.b64decode(decczfiledata)
+                            return base64decodeddata
+                        except zlib.error as ex:
+                            raise DecompressionError(str(ex))
                     else:
                         raise InvalidPassword('The Password Provided is Incorrect.')
                 else:
@@ -322,3 +504,79 @@ def dec_protected_script(filepath, filename, password=None):
             raise FileNameNotProvided('A File Name was not provided to decompress a compressed python script file.')
     else:
         raise FilePathNotProvided('A File Path was not provided to decompress a compressed python script file.')
+
+
+def dec_bytecode(filepath, filename):
+    '''
+    A Version of decompress_bytecode() that does not write a Decompressed file. Instead it returns the bytes of the
+    decompressed data.
+
+    This is useful for when you want to import a pyccx file that does not have a decompressed copy of itself.
+
+    The pro about this is the file name is required minus the '.pyccx' part.
+
+    Another benefit of this is that it can reduce a pyc file's size down by 1/3 (sometimes more) because of the
+    base64 -> zlib compressed data.
+
+    :param filepath: Path to the file to decompress.
+    :param filename: File name to decompress.
+    :return: File Bytes to decompressed file data. (no joke it returns bytes, not text, bytes!!!)
+    '''
+    if filepath is not None:
+        if filename is not None:
+            filedata = None
+            file = io.open(filepath + filename + '.pyccx', "rb")
+            if file is not None:
+                filedata = file.read()
+                filedata = filedata.strip(b'PYCCX')
+                file.close()
+            try:
+                decczfiledata = zlib.decompress(filedata)
+                base64decodeddata = base64.b64decode(decczfiledata)
+                return base64decodeddata
+            except zlib.error as ex:
+                raise DecompressionError(str(ex))
+        else:
+            raise FileNameNotProvided('A File Name was not provided to decompress a compressed python Bytecode file.')
+    else:
+        raise FilePathNotProvided('A File Path was not provided to decompress a compressed python Bytecode file.')
+
+
+def dec_protected_bytecode(filepath, filename, password=None):
+    '''
+    A Version of dec_bytecode() that Allows Decoding of Password Protected pycx files to byte data.
+    :param filepath: Path to the file to decompress.
+    :param filename: File name to decompress.
+    :param password: Password (in bytes) to the file to decode to byte data.
+    :return: File Bytes to decompressed file data. (no joke it returns bytes, not text, bytes!!!)
+    '''
+    if filepath is not None:
+        if filename is not None:
+            if password is not None:
+                pswdata = base64.b64encode(password)
+                filedata = None
+                file = io.open(filepath + filename + '.pyccx', "rb")
+                if file is not None:
+                    filedata = file.read()
+                    filedata = filedata[len(b'PYCCX'):].strip()
+                    file.close()
+                if filedata.startswith(b'&pw='):
+                    filedata = filedata[len(b'&pw='):].strip()
+                    if filedata.startswith(pswdata):
+                        filedata = filedata[len(pswdata):].strip()
+                        try:
+                            decczfiledata = zlib.decompress(filedata)
+                            base64decodeddata = base64.b64decode(decczfiledata)
+                            return base64decodeddata
+                        except zlib.error as ex:
+                            raise DecompressionError(str(ex))
+                    else:
+                        raise InvalidPassword('The Password Provided is Incorrect.')
+                else:
+                    raise NoPasswordPresent('The file {0}.pyccx is not Password Protected.'.format(filename))
+            else:
+                raise NoPasswordSpecified('A Password was not specified to decompress {0}.pyccx'.format(filename))
+        else:
+            raise FileNameNotProvided('A File Name was not provided to decompress a compressed python Bytecode file.')
+    else:
+        raise FilePathNotProvided('A File Path was not provided to decompress a compressed python Bytecode file.')
