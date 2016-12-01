@@ -30,7 +30,7 @@ from .packages.urllib3.exceptions import (
 from .exceptions import (
     HTTPError, MissingSchema, InvalidURL, ChunkedEncodingError,
     ContentDecodingError, ConnectionError, StreamConsumedError)
-from ._internal_utils import to_native_string
+from ._internal_utils import to_native_string, unicode_is_ascii
 from .utils import (
     guess_filename, get_auth_from_url, requote_uri,
     stream_decode_response_unicode, to_key_val_list, parse_header_links,
@@ -343,10 +343,13 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):
         else:
             url = unicode(url) if is_py2 else str(url)
 
+        # Remove leading whitespaces from url
+        url = url.lstrip()
+
         # Don't do any URL preparation for non-HTTP schemes like `mailto`,
-        # `data` etc to work around exceptions from `url_parse`, which
-        # handles RFC 3986 only.
-        if ':' in url and not url.lower().startswith('http'):
+        # `data`, `http+unix` etc to work around exceptions from `url_parse`,
+        # which handles RFC 3986 only.
+        if ':' in url and not url.lower().startswith(('http://', 'https://')):
             self.url = url
             return
 
@@ -365,11 +368,17 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):
         if not host:
             raise InvalidURL("Invalid URL %r: No host supplied" % url)
 
-        # Only want to apply IDNA to the hostname
+        # In general, we want to try IDNA encoding every hostname, as that
+        # allows users to automatically get the correct behaviour. However,
+        # we’re quite strict about IDNA encoding, so certain valid hostnames
+        # may fail to encode. On failure, we verify the hostname meets a
+        # minimum standard of only containing ASCII characters, and not starting
+        # with a wildcard (*), before allowing the unencoded hostname through.
         try:
             host = idna.encode(host, uts46=True).decode('utf-8')
         except (UnicodeError, idna.IDNAError):
-            raise InvalidURL('URL has an invalid label.')
+            if not unicode_is_ascii(host) or host.startswith(u'*'):
+                raise InvalidURL('URL has an invalid label.')
 
         # Carefully reconstruct the network location
         netloc = auth or ''
@@ -766,7 +775,7 @@ class Response(object):
                 raise RuntimeError(
                     'The content for this response was already consumed')
 
-            if self.status_code == 0:
+            if self.status_code == 0 or self.raw is None:
                 self._content = None
             else:
                 self._content = bytes().join(self.iter_content(CONTENT_CHUNK_SIZE)) or bytes()

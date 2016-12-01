@@ -1,14 +1,37 @@
 # coding=utf-8
+"""
+The MIT License (MIT)
+
+Copyright (c) 2016 AraHaan
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+"""
 try:
     from . import api
 except SystemError:
-    import api
+    import py2pycx.api
 import sys
-import os
 import getopt
 
 
 def main(argv):
+    """..."""
     if len(argv) < 1:
         sys.exit(2)
     try:
@@ -28,10 +51,13 @@ def main(argv):
             czlevel = argument
         if option in ('a', '--password'):
             pswd = argument
+    if czlevel is None:
+        czlevel = 9  # Automatically go with highest zlib compression possible.
     if filename is not None:
         if pswd is not None:
             try:
-                api.compress_protected_bytecode(in_path, filename + "." + sys.implementation.cache_tag, cz_level=czlevel,password=pswd)
+                api.compress_protected_bytecode(in_path, filename + "." + sys.implementation.cache_tag,
+                                                cz_level=czlevel, password=pswd)
                 print('Password Protected Bytecode Compression Complete.')
             except api.NoPasswordSpecified as err:
                 print('Error: {0}'.format(str(err)))

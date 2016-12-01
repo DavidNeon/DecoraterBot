@@ -1,83 +1,105 @@
 # coding=utf-8
-import os
+"""
+The MIT License (MIT)
+
+Copyright (c) 2016 AraHaan
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+"""
+import base64
 import io
 import zlib
-import base64
 
 
 class BaseErrors(Exception):
-    '''
+    """
     Base Exceptions class.
-    '''
+    """
     pass
 
 
 class FilePathNotProvided(BaseErrors):
-    '''
+    """
     Exception for When a Script File (Either Compressed or not) is not provided.
-    '''
+    """
     pass
 
 
 class FileNameNotProvided(BaseErrors):
-    '''
+    """
     Exception for When a Script File is not provided is not provided.
-    '''
+    """
     pass
 
 
 class FileNotFound(BaseErrors):
-    '''
+    """
     Exception for When a Script File (Either Compressed or not) is not found.
-    '''
+    """
     pass
 
 
 class NoPasswordSpecified(BaseErrors):
-    '''
+    """
     Exception for When a Password is not specified for a Password Protected Script file.
-    '''
+    """
     pass
 
 
 class InvalidPassword(BaseErrors):
-    '''
+    """
     Exception for when a Password is Incorrect.
-    '''
+    """
     pass
 
 
 class PasswordProtectedError(BaseErrors):
-    '''
-    Exception for when Trying to Decompress a Password Protected file in the Non-Password Protection 
+    """
+    Exception for when Trying to Decompress a Password Protected file in the Non-Password Protection
     version of the Decompressor.
-    '''
+    """
     pass
 
 
 class NoPasswordPresent(BaseErrors):
-    '''
-    Exception for when the Password Protected Decompress Function is Called with a PYCX file that has 
+    """
+    Exception for when the Password Protected Decompress Function is Called with a PYCX file that has
     no password protection on it.
-    '''
+    """
     pass
 
 
 class DecompressionError(BaseErrors):
-    '''
+    """
     Exception for when a zlib Error for depmpressing a pycx or pyccx file happens.
-    '''
+    """
     pass
 
 
 def compress_script(filepath, filename, cz_level=None):
-    '''
+    """
     Compresses a Python Script.
     :param filepath: Path to the file to compress.
     :param filename: File name to compress.
     :param cz_level: Compression level (Max is 9) If None is provided then default is level 9.
     :return: None
-    '''
+    """
     notfound = False
     if filepath is not None:
         if filename is not None:
@@ -106,7 +128,7 @@ def compress_script(filepath, filename, cz_level=None):
 
 
 def compress_protected_script(filepath, filename, cz_level=None, password=None):
-    '''
+    """
     Same as compress_script() but is for Compressing password Protected pycx files.
 
     Password must be a byte string. This Function will then add the byte string in to the
@@ -114,8 +136,9 @@ def compress_protected_script(filepath, filename, cz_level=None, password=None):
     :param filepath: Path to the file to compress.
     :param filename: File name to compress.
     :param cz_level: Compression level (Max is 9) If None is provided then default is level 9.
+    :param password: Compression Password to use to encode into the processed file.
     :return: None
-    '''
+    """
     notfound = False
     if filepath is not None:
         if filename is not None:
@@ -148,13 +171,13 @@ def compress_protected_script(filepath, filename, cz_level=None, password=None):
 
 
 def compress_bytecode(filepath, filename, cz_level=None):
-    '''
+    """
     Compresses a Python pyc file.
     :param filepath: Path to the file to compress.
     :param filename: File name to compress.
     :param cz_level: Compression level (Max is 9) If None is provided then default is level 9.
     :return: None
-    '''
+    """
     notfound = False
     if filepath is not None:
         if filename is not None:
@@ -183,7 +206,7 @@ def compress_bytecode(filepath, filename, cz_level=None):
 
 
 def compress_protected_bytecode(filepath, filename, cz_level=None, password=None):
-    '''
+    """
     Same as compress_bytecode() but is for Compressing password Protected pyccx files.
 
     Password must be a byte string. This Function will then add the byte string in to the
@@ -191,8 +214,9 @@ def compress_protected_bytecode(filepath, filename, cz_level=None, password=None
     :param filepath: Path to the file to compress.
     :param filename: File name to compress.
     :param cz_level: Compression level (Max is 9) If None is provided then default is level 9.
+    :param password: Compression Password to use to encode into the processed file.
     :return: None
-    '''
+    """
     notfound = False
     if filepath is not None:
         if filename is not None:
@@ -225,12 +249,12 @@ def compress_protected_bytecode(filepath, filename, cz_level=None, password=None
 
 
 def decompress_script(filepath, filename):
-    '''
+    """
     Decompresses a Python Script.
     :param filepath: Path to the file to decompress.
     :param filename: File name to decompress.
     :return: None
-    '''
+    """
     notfound = False
     if filepath is not None:
         if filename is not None:
@@ -242,7 +266,8 @@ def decompress_script(filepath, filename):
                     filedata = filedata[len(b'PYCX'):].strip()
                     file.close()
                 if filedata.startswith(b'&pw='):
-                    raise PasswordProtectedError('Cannot Decompress {0}.pycx due to Password Protection on the file.'.format(filename))
+                    raise PasswordProtectedError(
+                        'Cannot Decompress {0}.pycx due to Password Protection on the file.'.format(filename))
                 else:
                     try:
                         decczfiledata = zlib.decompress(filedata)
@@ -264,7 +289,7 @@ def decompress_script(filepath, filename):
 
 
 def decompress_protected_script(filepath, filename, password=None):
-    '''
+    """
     Same as decompress_script() but is for Decompressing password Protected pycx files.
 
     Password must be a byte string. This Function will then check and see if the byte string
@@ -273,7 +298,7 @@ def decompress_protected_script(filepath, filename, password=None):
     :param filename: File name to decompress.
     :param password: byte string.
     :return: None
-    '''
+    """
     notfound = False
     if filepath is not None:
         if filename is not None:
@@ -316,12 +341,12 @@ def decompress_protected_script(filepath, filename, password=None):
 
 
 def decompress_bytecode(filepath, filename):
-    '''
+    """
     Decompresses a Python Script.
     :param filepath: Path to the file to decompress.
     :param filename: File name to decompress.
     :return: None
-    '''
+    """
     notfound = False
     if filepath is not None:
         if filename is not None:
@@ -333,7 +358,8 @@ def decompress_bytecode(filepath, filename):
                     filedata = filedata[len(b'PYCCX'):].strip()
                     file.close()
                 if filedata.startswith(b'&pw='):
-                    raise PasswordProtectedError('Cannot Decompress {0}.pyccx due to Password Protection on the file.'.format(filename))
+                    raise PasswordProtectedError(
+                        'Cannot Decompress {0}.pyccx due to Password Protection on the file.'.format(filename))
                 else:
                     try:
                         decczfiledata = zlib.decompress(filedata)
@@ -355,7 +381,7 @@ def decompress_bytecode(filepath, filename):
 
 
 def decompress_protected_bytecode(filepath, filename, password=None):
-    '''
+    """
     Same as decompress_bytecode() but is for Decompressing password Protected pycx files.
 
     Password must be a byte string. This Function will then check and see if the byte string
@@ -364,7 +390,7 @@ def decompress_protected_bytecode(filepath, filename, password=None):
     :param filename: File name to decompress.
     :param password: byte string.
     :return: None
-    '''
+    """
     notfound = False
     if filepath is not None:
         if filename is not None:
@@ -407,8 +433,8 @@ def decompress_protected_bytecode(filepath, filename, password=None):
 
 
 def this_is_not_a_function_to_keep_this_coment_in_byte_codes():
-    '''
-    I would like for the data returned from this to be importable without  having to cache (only if 
+    """
+    I would like for the data returned from this to be importable without  having to cache (only if
     sys.dont_write_bytecode is True) and without having to generate the normal py file as well.
     Why do this? what is the point?
     The Point for this is to make a interface to make python scripts smaller.
@@ -423,12 +449,12 @@ def this_is_not_a_function_to_keep_this_coment_in_byte_codes():
         Normal Size: 25296 bytes
         Compressed Size: 5570 bytes
         PYCCX Compressed Size: 4163 bytes
-    '''
+    """
     pass
 
 
 def dec_script(filepath, filename):
-    '''
+    """
     A Version of decompress_script() that does not write a Decompressed file. Instead it returns the bytes of the
     decompressed data.
 
@@ -445,7 +471,7 @@ def dec_script(filepath, filename):
     :param filepath: Path to the file to decompress.
     :param filename: File name to decompress.
     :return: File Bytes to decompressed file data. (no joke it returns bytes, not text, bytes!!!)
-    '''
+    """
     if filepath is not None:
         if filename is not None:
             filedata = None
@@ -467,13 +493,13 @@ def dec_script(filepath, filename):
 
 
 def dec_protected_script(filepath, filename, password=None):
-    '''
+    """
     A Version of dec_script() that Allows Decoding of Password Protected pycx files to byte data.
     :param filepath: Path to the file to decompress.
     :param filename: File name to decompress.
     :param password: Password (in bytes) to the file to decode to byte data.
     :return: File Bytes to decompressed file data. (no joke it returns bytes, not text, bytes!!!)
-    '''
+    """
     if filepath is not None:
         if filename is not None:
             if password is not None:
@@ -507,7 +533,7 @@ def dec_protected_script(filepath, filename, password=None):
 
 
 def dec_bytecode(filepath, filename):
-    '''
+    """
     A Version of decompress_bytecode() that does not write a Decompressed file. Instead it returns the bytes of the
     decompressed data.
 
@@ -521,7 +547,7 @@ def dec_bytecode(filepath, filename):
     :param filepath: Path to the file to decompress.
     :param filename: File name to decompress.
     :return: File Bytes to decompressed file data. (no joke it returns bytes, not text, bytes!!!)
-    '''
+    """
     if filepath is not None:
         if filename is not None:
             filedata = None
@@ -543,13 +569,13 @@ def dec_bytecode(filepath, filename):
 
 
 def dec_protected_bytecode(filepath, filename, password=None):
-    '''
+    """
     A Version of dec_bytecode() that Allows Decoding of Password Protected pycx files to byte data.
     :param filepath: Path to the file to decompress.
     :param filename: File name to decompress.
     :param password: Password (in bytes) to the file to decode to byte data.
     :return: File Bytes to decompressed file data. (no joke it returns bytes, not text, bytes!!!)
-    '''
+    """
     if filepath is not None:
         if filename is not None:
             if password is not None:
