@@ -25,7 +25,10 @@ DEALINGS IN THE SOFTWARE.
 try:
     from . import api
 except SystemError:
-    import py2pycx.api
+    try:
+        import py2pycx.api
+    except ImportError:
+        import api
 import sys
 import getopt
 
